@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import re
 from typing import Iterable
@@ -25,6 +25,7 @@ class ScrapeResult:
     items: list[Competition]
     sources: list[str]
     warnings: list[str]
+    failed_listing_pages: list[str] = field(default_factory=list)
 
 
 def clean(value: str) -> str:
@@ -107,6 +108,7 @@ class Scraper:
     def scrape(self) -> ScrapeResult:
         sources: list[str] = []
         warnings: list[str] = []
+        failed_listing_pages: list[str] = []
         candidates: dict[str, Competition] = {}
 
         headers = {"User-Agent": self.user_agent}
@@ -142,6 +144,7 @@ class Scraper:
                         if existing is None or len(item.description) > len(existing.description):
                             candidates[item.id] = item
                 except Exception as exc:  # noqa: BLE001 - keep collecting other seed pages
+                    failed_listing_pages.append(url)
                     warnings.append(f"목록 페이지 수집 실패: {url} ({exc})")
 
             # Enrich internal detail pages. Failures do not erase the list item.
@@ -159,4 +162,9 @@ class Scraper:
                 except Exception as exc:  # noqa: BLE001 - one bad page must not stop the run
                     warnings.append(f"상세 페이지 수집 실패: {item.detail_url} ({exc})")
 
-        return ScrapeResult(list(candidates.values()), sorted(set(sources)), warnings)
+        return ScrapeResult(
+            items=list(candidates.values()),
+            sources=sorted(set(sources)),
+            warnings=warnings,
+            failed_listing_pages=failed_listing_pages,
+        )

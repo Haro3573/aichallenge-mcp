@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
 from .service import BriefingService
+from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 
 
 mcp = FastMCP(
@@ -22,11 +23,20 @@ mcp = FastMCP(
         "fetch as a closing. Respond in Korean and retain source URLs from tool results."
     ),
 )
-service = BriefingService()
+_legacy_service: BriefingService | None = None
+aichallenge4all_source = Aichallenge4allSourceAdapter()
 
 
 def json_text(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+
+
+def legacy_service() -> BriefingService:
+    """Lazily create the persistence-backed service until legacy tools retire."""
+    global _legacy_service
+    if _legacy_service is None:
+        _legacy_service = BriefingService()
+    return _legacy_service
 
 
 @mcp.tool(
@@ -49,7 +59,26 @@ def refresh_and_brief() -> str:
     compare them with the previous successful snapshot, and return new, changed, active,
     urgent, source, and warning data as JSON. Do not use general web search instead.
     """
-    return json_text(service.refresh())
+    return json_text(legacy_service().refresh())
+
+
+@mcp.tool(
+    name="collect_aichallenge4all",
+    annotations=ToolAnnotations(
+        title="Collect AI Challenge for All",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+def collect_aichallenge4all() -> str:
+    """Collect the current public AI Challenge for All source without stored history.
+
+    Returns the complete source-native items and audit metadata. A zero-item or
+    invalid collection is reported as a source failure, never as a closed listing.
+    """
+    return json_text(aichallenge4all_source.collect())
 
 
 @mcp.tool(
@@ -70,7 +99,7 @@ def get_active_overview(status: str | None = None) -> str:
     allowed = {None, "접수중", "진행중"}
     if status not in allowed:
         return json_text({"error": "status must be 접수중, 진행중, or omitted"})
-    return json_text(service.active_overview(status))
+    return json_text(legacy_service().active_overview(status))
 
 
 @mcp.tool(
@@ -89,7 +118,7 @@ def search(query: str) -> str:
         {
             "results": [
                 {"id": item["id"], "title": item["title"], "url": item.get("detail_url") or item.get("registration_url") or item.get("source_url")}
-                for item in service.search(query)
+                for item in legacy_service().search(query)
             ]
         }
     )
@@ -107,7 +136,7 @@ def search(query: str) -> str:
 )
 def fetch(item_id: str) -> str:
     """Fetch one competition from the stored read-only index by id."""
-    item = service.fetch(item_id)
+    item = legacy_service().fetch(item_id)
     if item is None:
         return json_text({"error": "competition not found", "id": item_id})
     return json_text(
