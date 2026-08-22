@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta
+import inspect
 import os
 import re
 from typing import Any
@@ -34,7 +36,8 @@ class BriefingService:
     def refresh(self) -> dict[str, Any]:
         run_id = self.db.start_run()
         try:
-            result: ScrapeResult = self.scraper.scrape()
+            scraped = self.scraper.scrape()
+            result: ScrapeResult = asyncio.run(scraped) if inspect.isawaitable(scraped) else scraped
             # A scraper that could not retrieve any seed page returns warnings and
             # no candidates.  Do not present that as a successful empty index: it
             # must preserve the previous snapshot and be visible to the caller.

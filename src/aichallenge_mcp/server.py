@@ -7,8 +7,10 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
+from .orchestrator import CollectionOrchestrator
 from .service import BriefingService
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
+from .sources.registry import SourceRegistration, SourceRegistry
 
 
 mcp = FastMCP(
@@ -25,6 +27,15 @@ mcp = FastMCP(
 )
 _legacy_service: BriefingService | None = None
 aichallenge4all_source = Aichallenge4allSourceAdapter()
+source_registry = SourceRegistry(
+    (
+        SourceRegistration(
+            adapter=aichallenge4all_source,
+            public_tool_name="collect_aichallenge4all",
+        ),
+    )
+)
+orchestrator = CollectionOrchestrator(source_registry)
 
 
 def json_text(payload: Any) -> str:
@@ -72,13 +83,32 @@ def refresh_and_brief() -> str:
         openWorldHint=False,
     ),
 )
-def collect_aichallenge4all() -> str:
+async def collect_aichallenge4all() -> str:
     """Collect the current public AI Challenge for All source without stored history.
 
     Returns the complete source-native items and audit metadata. A zero-item or
     invalid collection is reported as a source failure, never as a closed listing.
     """
-    return json_text(aichallenge4all_source.collect())
+    return json_text(await aichallenge4all_source.collect())
+
+
+@mcp.tool(
+    name="collect_all_sources",
+    annotations=ToolAnnotations(
+        title="Collect all registered sources",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+async def collect_all_sources() -> str:
+    """Collect every registered public source concurrently.
+
+    Returns each source's complete result in a separate section. A failed source
+    is retried once and reported without discarding successful source results.
+    """
+    return json_text(await orchestrator.collect())
 
 
 @mcp.tool(

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
 from ..models import utc_now_iso
 from ..scraper import BASE_URL, Scraper
+from .result import source_result
 
 
 class ScraperProtocol(Protocol):
-    def scrape(self) -> Any: ...
+    def scrape(self) -> Awaitable[Any]: ...
 
 
 class Aichallenge4allSourceAdapter:
@@ -28,10 +29,10 @@ class Aichallenge4allSourceAdapter:
         self._scraper = scraper or Scraper()
         self._now = now
 
-    def collect(self) -> dict[str, Any]:
+    async def collect(self) -> dict[str, Any]:
         checked_at = self._now()
         try:
-            result = self._scraper.scrape()
+            result = await self._scraper.scrape()
         except Exception as exc:  # noqa: BLE001 - source failures are public result data
             return self._failure(checked_at, [], [], f"collection failed: {exc}")
 
@@ -104,7 +105,10 @@ class Aichallenge4allSourceAdapter:
                 "source contract failed: invalid item source URL",
             )
 
-        return self._result(
+        return source_result(
+            source_id=self.source_id,
+            source_name=self.source_name,
+            source_url=self.source_url,
             checked_at=checked_at,
             success=True,
             items=items,
@@ -113,28 +117,6 @@ class Aichallenge4allSourceAdapter:
             error=None,
         )
 
-    def _result(
-        self,
-        *,
-        checked_at: str,
-        success: bool,
-        items: list[dict[str, Any]],
-        source_pages: list[str],
-        warnings: list[str],
-        error: str | None,
-    ) -> dict[str, Any]:
-        return {
-            "source_id": self.source_id,
-            "source_name": self.source_name,
-            "source_url": self.source_url,
-            "checked_at": checked_at,
-            "success": success,
-            "items": items,
-            "source_pages": source_pages,
-            "warnings": warnings,
-            "error": error,
-        }
-
     def _failure(
         self,
         checked_at: str,
@@ -142,7 +124,10 @@ class Aichallenge4allSourceAdapter:
         warnings: list[str],
         error: str,
     ) -> dict[str, Any]:
-        return self._result(
+        return source_result(
+            source_id=self.source_id,
+            source_name=self.source_name,
+            source_url=self.source_url,
             checked_at=checked_at,
             success=False,
             items=[],

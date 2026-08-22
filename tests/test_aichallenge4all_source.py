@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 
 from aichallenge_mcp.models import Competition
 from aichallenge_mcp.scraper import ScrapeResult
@@ -12,10 +12,14 @@ class StubScraper:
     def __init__(self, result: ScrapeResult | Exception) -> None:
         self.result = result
 
-    def scrape(self) -> ScrapeResult:
+    async def scrape(self) -> ScrapeResult:
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
+
+
+def collect(source: Aichallenge4allSourceAdapter) -> dict:
+    return asyncio.run(source.collect())
 
 
 def test_collect_returns_current_source_native_items_and_audit_metadata():
@@ -36,7 +40,7 @@ def test_collect_returns_current_source_native_items_and_audit_metadata():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    assert source.collect() == {
+    assert collect(source) == {
         "source_id": "aichallenge4all",
         "source_name": "AI Challenge for All",
         "source_url": "https://aichallenge4all.or.kr",
@@ -55,7 +59,7 @@ def test_collect_treats_no_valid_items_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -75,7 +79,7 @@ def test_collect_treats_missing_required_item_fields_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -98,7 +102,7 @@ def test_collect_treats_invalid_native_item_shape_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -123,7 +127,7 @@ def test_collect_treats_invalid_scraper_metadata_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -149,7 +153,7 @@ def test_collect_treats_listing_page_retrieval_error_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -172,7 +176,7 @@ def test_collect_treats_item_serialization_error_as_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -185,7 +189,7 @@ def test_collect_converts_scraper_error_into_source_failure():
         now=lambda: "2026-08-22T05:30:00+00:00",
     )
 
-    result = source.collect()
+    result = collect(source)
 
     assert result["success"] is False
     assert result["items"] == []
@@ -196,12 +200,12 @@ def test_mcp_source_tool_exposes_the_source_collection_contract(monkeypatch):
     from aichallenge_mcp import server
 
     class StubSource:
-        def collect(self):
+        async def collect(self):
             return {"source_id": "aichallenge4all", "success": True, "items": [{"title": "AI 해커톤"}]}
 
     monkeypatch.setattr(server, "aichallenge4all_source", StubSource())
 
-    assert json.loads(server.collect_aichallenge4all()) == {
+    assert json.loads(asyncio.run(server.collect_aichallenge4all())) == {
         "source_id": "aichallenge4all",
         "success": True,
         "items": [{"title": "AI 해커톤"}],

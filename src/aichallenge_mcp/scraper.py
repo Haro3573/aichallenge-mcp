@@ -100,23 +100,23 @@ class Scraper:
             "aichallenge-mcp/0.1 (+https://aichallenge4all.or.kr/)",
         )
 
-    def fetch_html(self, client: httpx.Client, url: str) -> str:
-        response = client.get(url, follow_redirects=True)
+    async def fetch_html(self, client: httpx.AsyncClient, url: str) -> str:
+        response = await client.get(url, follow_redirects=True)
         response.raise_for_status()
         return response.text
 
-    def scrape(self) -> ScrapeResult:
+    async def scrape(self) -> ScrapeResult:
         sources: list[str] = []
         warnings: list[str] = []
         failed_listing_pages: list[str] = []
         candidates: dict[str, Competition] = {}
 
         headers = {"User-Agent": self.user_agent}
-        with httpx.Client(timeout=self.timeout, headers=headers) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, headers=headers) as client:
             for path in SEED_PATHS:
                 url = urljoin(BASE_URL, path)
                 try:
-                    html = self.fetch_html(client, url)
+                    html = await self.fetch_html(client, url)
                     sources.append(url)
                     soup = BeautifulSoup(html, "html.parser")
                     for anchor in soup.select("a[href]"):
@@ -152,7 +152,7 @@ class Scraper:
                 if not item.detail_url:
                     continue
                 try:
-                    html = self.fetch_html(client, item.detail_url)
+                    html = await self.fetch_html(client, item.detail_url)
                     detail = extract_detail_fields(BeautifulSoup(html, "html.parser"))
                     item.schedule = detail["schedule"]
                     item.registration_period = detail["registration_period"]
