@@ -10,6 +10,7 @@ from mcp.types import ToolAnnotations
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 from .sources.dacon import DaconSourceAdapter
+from .sources.kaggle import KaggleSourceAdapter
 from .sources.registry import SourceRegistration, SourceRegistry
 
 
@@ -33,6 +34,7 @@ mcp = FastMCP(
 )
 aichallenge4all_source = Aichallenge4allSourceAdapter()
 dacon_source = DaconSourceAdapter()
+kaggle_source = KaggleSourceAdapter()
 source_registry = SourceRegistry(
     (
         SourceRegistration(
@@ -42,6 +44,10 @@ source_registry = SourceRegistry(
         SourceRegistration(
             adapter=dacon_source,
             public_tool_name="collect_dacon_competitions",
+        ),
+        SourceRegistration(
+            adapter=kaggle_source,
+            public_tool_name="collect_kaggle_competitions",
         ),
     )
 )
@@ -89,6 +95,26 @@ async def collect_dacon_competitions() -> str:
     interpreted as a closed or empty DACON catalogue.
     """
     return json_text(await dacon_source.collect())
+
+
+@mcp.tool(
+    name="collect_kaggle_competitions",
+    annotations=ToolAnnotations(
+        title="Collect active online Kaggle competitions",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+async def collect_kaggle_competitions() -> str:
+    """Collect active Kaggle competitions with Online location only.
+
+    The source uses Kaggle's public anonymous listing route, does not require a
+    Kaggle account or API key, and excludes any entry whose public text signals
+    an in-person or offline participation requirement.
+    """
+    return json_text(await kaggle_source.collect())
 
 
 @mcp.tool(

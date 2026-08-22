@@ -15,6 +15,7 @@ def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
         "collect_all_sources",
         "collect_aichallenge4all",
         "collect_dacon_competitions",
+        "collect_kaggle_competitions",
     }
     assert "stored" not in server.mcp.instructions
     assert "refresh_and_brief" not in server.mcp.instructions
