@@ -26,8 +26,9 @@ python -m aichallenge_mcp.server
 ```
 
 서버는 기본적으로 `http://127.0.0.1:8000/mcp`에서 Streamable HTTP MCP를 제공합니다.
+의존성은 MCP Python SDK 2.x(`mcp>=2.0.0,<3`)이며 최신 Discovery 프로토콜을 네이티브로 지원합니다.
 
-공개 HTTPS reverse proxy 또는 터널을 쓰면, FastMCP Host 검증에 해당 공개 호스트를 명시합니다.
+공개 HTTPS reverse proxy 또는 터널을 쓰면, MCP SDK Host 검증에 해당 공개 호스트를 명시합니다.
 
 ```bash
 MCP_ALLOWED_HOSTS=example.com python -m aichallenge_mcp.server

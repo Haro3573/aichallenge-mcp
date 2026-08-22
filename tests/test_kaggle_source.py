@@ -91,5 +91,5 @@ def test_mcp_registers_kaggle_as_a_public_source_tool():
     tools = asyncio.run(server.mcp.list_tools())
     tool = next(tool for tool in tools if tool.name == "collect_kaggle_competitions")
 
-    assert tool.annotations.readOnlyHint is True
+    assert tool.annotations.read_only_hint is True
     assert "Online location only" in tool.description

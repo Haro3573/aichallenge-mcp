@@ -24,6 +24,42 @@ def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
     assert any("history" in (tool.description or "").lower() for tool in tools)
 
 
+def test_mcp_v2_serves_native_modern_discovery():
+    from aichallenge_mcp.server import mcp
+    from mcp.server.transport_security import TransportSecuritySettings
+    from starlette.testclient import TestClient
+
+    app = mcp.streamable_http_app(
+        host="127.0.0.1",
+        transport_security=TransportSecuritySettings(allowed_hosts=["testserver"]),
+    )
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "discover-1",
+        "method": "server/discover",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
+            }
+        },
+    }
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": "2026-07-28",
+        "MCP-Method": "server/discover",
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/mcp", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["resultType"] == "complete"
+    assert result["supportedVersions"] == ["2026-07-28"]
+    assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "AI Challenge Briefing"
+
+
 def test_chatgpt_skill_calls_only_the_collection_orchestrator():
     skill = (Path(__file__).parents[1] / "chatgpt-skills" / "ai-contest-briefing" / "SKILL.md").read_text()
 

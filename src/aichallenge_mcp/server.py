@@ -4,7 +4,8 @@ import json
 import os
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from .orchestrator import CollectionOrchestrator
@@ -14,8 +15,9 @@ from .sources.kaggle import KaggleSourceAdapter
 from .sources.registry import SourceRegistration, SourceRegistry
 
 
-mcp = FastMCP(
+mcp = MCPServer(
     "AI Challenge Briefing",
+    version="0.1.0",
     instructions=(
         "For a current AI competition briefing, you MUST call collect_all_sources before "
         "answering. Do not substitute web search or prior conversation. This server collects "
@@ -53,7 +55,6 @@ source_registry = SourceRegistry(
 )
 orchestrator = CollectionOrchestrator(source_registry)
 
-
 def json_text(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
 
@@ -62,10 +63,10 @@ def json_text(payload: Any) -> str:
     name="collect_aichallenge4all",
     annotations=ToolAnnotations(
         title="Collect AI Challenge for All",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def collect_aichallenge4all() -> str:
@@ -81,10 +82,10 @@ async def collect_aichallenge4all() -> str:
     name="collect_dacon_competitions",
     annotations=ToolAnnotations(
         title="Collect active DACON competitions",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def collect_dacon_competitions() -> str:
@@ -101,10 +102,10 @@ async def collect_dacon_competitions() -> str:
     name="collect_kaggle_competitions",
     annotations=ToolAnnotations(
         title="Collect active online Kaggle competitions",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def collect_kaggle_competitions() -> str:
@@ -121,10 +122,10 @@ async def collect_kaggle_competitions() -> str:
     name="collect_all_sources",
     annotations=ToolAnnotations(
         title="Collect all registered sources",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def collect_all_sources() -> str:
@@ -140,23 +141,28 @@ async def collect_all_sources() -> str:
 
 
 def main() -> None:
-    # Configure the listener explicitly so local tunnels and hosted deployments
-    # can choose their port without relying on SDK-version-specific env parsing.
-    mcp.settings.host = os.getenv("MCP_HOST", "0.0.0.0")
-    mcp.settings.port = int(os.getenv("MCP_PORT", "8000"))
-
-    # FastMCP protects localhost servers from DNS rebinding by validating Host.
+    # MCP SDK protects localhost servers from DNS rebinding by validating Host.
     # A reverse proxy or HTTPS tunnel has a different public Host header, so an
-    # operator must explicitly allow that exact hostname at runtime.  Keeping it
-    # out of source code prevents accidentally trusting arbitrary hosts.
+    # operator may explicitly allow any additional hostname at runtime. The
+    # loopback forms are needed by the local Secure MCP Tunnel target.
     allowed_hosts = [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "localhost",
+        "localhost:*",
+        "[::1]",
+        "[::1]:*",
+    ] + [
         host.strip()
         for host in os.getenv("MCP_ALLOWED_HOSTS", "").split(",")
         if host.strip()
     ]
-    if allowed_hosts and mcp.settings.transport_security is not None:
-        mcp.settings.transport_security.allowed_hosts.extend(allowed_hosts)
-    mcp.run(transport="streamable-http")
+    mcp.run(
+        transport="streamable-http",
+        host=os.getenv("MCP_HOST", "0.0.0.0"),
+        port=int(os.getenv("MCP_PORT", "8000")),
+        transport_security=TransportSecuritySettings(allowed_hosts=allowed_hosts),
+    )
 
 
 if __name__ == "__main__":
