@@ -11,7 +11,11 @@ def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
     tools = asyncio.run(server.mcp.list_tools())
     tool_names = {tool.name for tool in tools}
 
-    assert tool_names == {"collect_all_sources", "collect_aichallenge4all"}
+    assert tool_names == {
+        "collect_all_sources",
+        "collect_aichallenge4all",
+        "collect_dacon_competitions",
+    }
     assert "stored" not in server.mcp.instructions
     assert "refresh_and_brief" not in server.mcp.instructions
     assert "Never claim" in server.mcp.instructions

@@ -9,6 +9,7 @@ from mcp.types import ToolAnnotations
 
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
+from .sources.dacon import DaconSourceAdapter
 from .sources.registry import SourceRegistration, SourceRegistry
 
 
@@ -31,11 +32,16 @@ mcp = FastMCP(
     ),
 )
 aichallenge4all_source = Aichallenge4allSourceAdapter()
+dacon_source = DaconSourceAdapter()
 source_registry = SourceRegistry(
     (
         SourceRegistration(
             adapter=aichallenge4all_source,
             public_tool_name="collect_aichallenge4all",
+        ),
+        SourceRegistration(
+            adapter=dacon_source,
+            public_tool_name="collect_dacon_competitions",
         ),
     )
 )
@@ -63,6 +69,26 @@ async def collect_aichallenge4all() -> str:
     invalid collection is reported as a source failure, never as a closed listing.
     """
     return json_text(await aichallenge4all_source.collect())
+
+
+@mcp.tool(
+    name="collect_dacon_competitions",
+    annotations=ToolAnnotations(
+        title="Collect active DACON competitions",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+async def collect_dacon_competitions() -> str:
+    """Collect current public, actionable DACON competition entries.
+
+    Returns list-card fields plus optional public detail enrichment. Only
+    참가신청중, 진행중, and 연습 entries are included; a listing failure is never
+    interpreted as a closed or empty DACON catalogue.
+    """
+    return json_text(await dacon_source.collect())
 
 
 @mcp.tool(

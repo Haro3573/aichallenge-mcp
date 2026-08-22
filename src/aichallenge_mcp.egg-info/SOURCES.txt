@@ -14,9 +14,11 @@ src/aichallenge_mcp.egg-info/requires.txt
 src/aichallenge_mcp.egg-info/top_level.txt
 src/aichallenge_mcp/sources/__init__.py
 src/aichallenge_mcp/sources/aichallenge4all.py
+src/aichallenge_mcp/sources/dacon.py
 src/aichallenge_mcp/sources/registry.py
 src/aichallenge_mcp/sources/result.py
 tests/test_aichallenge4all_fixture.py
 tests/test_aichallenge4all_source.py
 tests/test_chatgpt_surface.py
+tests/test_dacon_source.py
 tests/test_orchestrator.py
