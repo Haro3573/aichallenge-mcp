@@ -216,11 +216,24 @@ def test_mcp_orchestrator_tool_exposes_the_combined_collection(monkeypatch):
 
     class StubOrchestrator:
         async def collect(self) -> dict:
-            return {"counts": {"total": 1, "succeeded": 1, "failed": 0}, "sources": []}
+            return {
+                "history_comparison": {
+                    "available": False,
+                    "reason": "No stored runs.",
+                    "required_response_ko": "비교할 수 없습니다.",
+                },
+                "counts": {"total": 1, "succeeded": 1, "failed": 0},
+                "sources": [],
+            }
 
     monkeypatch.setattr(server, "orchestrator", StubOrchestrator())
 
     assert json.loads(asyncio.run(server.collect_all_sources())) == {
+        "history_comparison": {
+            "available": False,
+            "reason": "No stored runs.",
+            "required_response_ko": "비교할 수 없습니다.",
+        },
         "counts": {"total": 1, "succeeded": 1, "failed": 0},
         "sources": [],
     }

@@ -37,6 +37,17 @@ class CollectionOrchestrator:
         succeeded = sum(source["success"] for source in sources)
         return {
             "checked_at": checked_at,
+            "history_comparison": {
+                "available": False,
+                "reason": (
+                    "This is a standalone current collection. The server does not store "
+                    "previous runs, snapshots, or change history."
+                ),
+                "required_response_ko": (
+                    "이 MCP 서버는 무상태이므로 이전 수집과의 신규·변경·동일·삭제 "
+                    "비교 결과를 제공할 수 없습니다. 현재 수집 결과만 안내할 수 있습니다."
+                ),
+            },
             "counts": {
                 "total": len(sources),
                 "succeeded": succeeded,

@@ -8,11 +8,15 @@ from zipfile import ZipFile
 def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
     from aichallenge_mcp import server
 
-    tool_names = {tool.name for tool in asyncio.run(server.mcp.list_tools())}
+    tools = asyncio.run(server.mcp.list_tools())
+    tool_names = {tool.name for tool in tools}
 
     assert tool_names == {"collect_all_sources", "collect_aichallenge4all"}
     assert "stored" not in server.mcp.instructions
     assert "refresh_and_brief" not in server.mcp.instructions
+    assert "Never claim" in server.mcp.instructions
+    assert "Never compare" in server.mcp.instructions
+    assert any("history" in (tool.description or "").lower() for tool in tools)
 
 
 def test_chatgpt_skill_calls_only_the_collection_orchestrator():
