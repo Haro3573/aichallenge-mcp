@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 
-from .service import BriefingService
+from .server import orchestrator
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AI Challenge Briefing CLI")
-    parser.add_argument("command", choices=("refresh", "overview"))
-    args = parser.parse_args()
-    service = BriefingService()
-    result = service.refresh() if args.command == "refresh" else service.active_overview()
+    argparse.ArgumentParser(description="AI Challenge source collection CLI").parse_args()
+    result = asyncio.run(orchestrator.collect())
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
 

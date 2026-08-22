@@ -1,6 +1,6 @@
 interface:
   display_name: "AI 대회 브리핑"
-  short_description: "AI 대회 MCP를 강제 호출해 최신 현황을 브리핑"
-  default_prompt: "Use $ai-contest-briefing to produce today’s AI competition briefing in Korean."
+  short_description: "등록된 AI 대회 소스를 모두 새로 수집해 브리핑"
+  default_prompt: "Use $ai-contest-briefing to collect every registered AI competition source and brief the current results in Korean."
 policy:
   allow_implicit_invocation: false

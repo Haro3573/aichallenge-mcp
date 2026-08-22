@@ -3,11 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
-import json
 from typing import Any
-
-
-ACTIVE_STATUSES = {"접수중", "진행중"}
 
 
 def utc_now_iso() -> str:
@@ -33,13 +29,6 @@ class Competition:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-    def fingerprint(self) -> str:
-        payload = self.to_dict().copy()
-        payload.pop("id", None)
-        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
 
 def stable_id(url: str, title: str) -> str:
     value = url.strip() or title.strip()
