@@ -6,13 +6,15 @@ ChatGPT의 **AI 대회 브리핑** 앱이 운영자 등록 공개 소스에서 A
 
 ## 제공 도구
 
-- `collect_all_sources`: 모든 등록 source를 동시에 수집하는 기본 오케스트레이터입니다. source별 전체 결과, 원본 URL, 수집 시각, 성공/실패와 경고를 반환합니다. source마다 20초 제한과 1회 재시도를 적용하며, 한 source 실패가 다른 결과를 지우지 않습니다.
+- `collect_all_sources`: 모든 등록 source를 동시에 수집하는 기본 오케스트레이터입니다. 대화에는 source별 성공/실패·건수의 압축 요약만 반환하고, ChatGPT 앱 카드에서는 이번 수집 전체 결과를 Markdown 문서로 내려받을 수 있습니다. source마다 20초 제한과 1회 재시도를 적용하며, 한 source 실패가 다른 결과를 지우지 않습니다.
 - `collect_aichallenge4all`: `aichallenge4all.or.kr`의 현재 전체 결과를 반환하는 공개 source 도구입니다. ChatGPT가 후속 질문에서 직접 사용할 수 있습니다.
 - `collect_dacon_competitions`: `dacon.io/competitions`에서 현재 참여 가능한 공식 대회(`참가신청중`·`진행중`·`연습`)와 공개 상세 정보를 반환하는 source 도구입니다.
 - `collect_kaggle_competitions`: Kaggle 공식 인증 API에서 활성 대회를 읽고, 원격 참여 정책을 만족하는 `location: Online` 항목만 반환하는 source 도구입니다. 런타임 환경에 `KAGGLE_API_TOKEN` 또는 `KAGGLE_USERNAME`·`KAGGLE_KEY`가 필요하며, 자격증명과 개인화 필드는 반환하지 않습니다.
 - `collect_devpost_hackathons`: Devpost 공개 목록 API에서 현재 접수 중인 해커톤을 반환하는 source 도구입니다. 온라인·오프라인 위치는 필터링하지 않고 원본 `location` 필드로 제공합니다. Devpost 계정이나 API 키는 사용하지 않습니다.
 
 수집 결과는 상태가 없습니다. SQLite, 이전 실행 결과, 신규·변경 비교, stale fallback, 아카이브는 사용하지 않습니다.
+
+`collect_all_sources`의 Markdown 문서는 서버 파일이나 데이터베이스에 저장되지 않습니다. 이번 호출의 도구 결과 메타데이터로만 앱 카드에 전달되고, 사용자가 **Markdown 문서 다운로드**를 누르면 브라우저가 파일을 생성합니다. MCP Apps UI를 지원하지 않는 클라이언트에서는 압축 요약만 보입니다.
 
 ## 로컬 실행
 
@@ -61,7 +63,7 @@ python -m compileall src
 1. 로컬 서버를 실행한다.
 2. OpenAI Secure MCP Tunnel 또는 개발용 HTTPS reverse tunnel을 `http://127.0.0.1:8000/mcp`에 연결한다.
 3. ChatGPT Developer mode에서 **AI 대회 브리핑** 앱의 연결 방식을 Tunnel, 인증을 No Auth로 설정한다.
-4. 앱의 도구 목록에 `collect_all_sources`와 등록 source 도구가 표시되는지 확인한다.
+4. 앱의 도구 목록에 `collect_all_sources`와 등록 source 도구가 표시되는지 확인하고, 앱 연결을 Refresh한 뒤 `collect_all_sources`의 **AI 대회 브리핑 문서** 카드를 확인한다.
 5. `chatgpt-skills/ai-contest-briefing-chatgpt.skill.zip`을 ChatGPT Skill로 설치 또는 업데이트한다.
 6. `@AI 대회 브리핑`을 선택하면 Skill이 `collect_all_sources`를 호출한다.
 

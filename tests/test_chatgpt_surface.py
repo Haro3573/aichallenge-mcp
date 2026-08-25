@@ -23,6 +23,21 @@ def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
     assert "Never claim" in server.mcp.instructions
     assert "Never compare" in server.mcp.instructions
     assert any("history" in (tool.description or "").lower() for tool in tools)
+    orchestrator = next(tool for tool in tools if tool.name == "collect_all_sources")
+    assert orchestrator.meta["ui"]["resourceUri"] == "ui://ai-contest-briefing/briefing-document-v1.html"
+
+
+def test_mcp_exposes_the_orchestrator_download_widget_resource():
+    from aichallenge_mcp import server
+
+    resources = asyncio.run(server.mcp.list_resources())
+    resource = next(item for item in resources if item.uri == "ui://ai-contest-briefing/briefing-document-v1.html")
+    contents = asyncio.run(server.mcp.read_resource(resource.uri))
+
+    assert resource.mime_type == "text/html;profile=mcp-app"
+    assert "ui/notifications/tool-result" in contents[0].content
+    assert "briefing_document" in contents[0].content
+    assert "Markdown 문서 다운로드" in contents[0].content
 
 
 def test_mcp_v2_serves_native_modern_discovery():
@@ -69,6 +84,7 @@ def test_chatgpt_skill_calls_only_the_collection_orchestrator():
     assert "get_active_overview" not in skill
     assert "`search`" not in skill
     assert "`fetch`" not in skill
+    assert "Markdown 문서 다운로드" in skill
 
 
 def test_distributable_skill_archives_match_the_orchestrator_workflow():
@@ -80,5 +96,6 @@ def test_distributable_skill_archives_match_the_orchestrator_workflow():
             manifest = archive.read("ai-contest-briefing/agents/openai.yaml").decode()
 
         assert "collect_all_sources" in skill
+        assert "Markdown 문서 다운로드" in skill
         assert "refresh_and_brief" not in skill
         assert "collect every registered" in manifest

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import threading
 
 import pytest
@@ -211,7 +210,7 @@ def test_orchestrator_cancels_a_timed_out_adapter_before_retrying():
     assert adapter.cancellations == 2
 
 
-def test_mcp_orchestrator_tool_exposes_the_combined_collection(monkeypatch):
+def test_mcp_orchestrator_tool_exposes_a_compact_summary_and_ephemeral_document(monkeypatch):
     from aichallenge_mcp import server
 
     class StubOrchestrator:
@@ -228,15 +227,22 @@ def test_mcp_orchestrator_tool_exposes_the_combined_collection(monkeypatch):
 
     monkeypatch.setattr(server, "orchestrator", StubOrchestrator())
 
-    assert json.loads(asyncio.run(server.collect_all_sources())) == {
-        "history_comparison": {
-            "available": False,
-            "reason": "No stored runs.",
-            "required_response_ko": "비교할 수 없습니다.",
-        },
+    result = asyncio.run(server.collect_all_sources())
+
+    assert result.structured_content == {
+        "checked_at": None,
         "counts": {"total": 1, "succeeded": 1, "failed": 0},
+        "item_count": 0,
         "sources": [],
+        "document": {
+            "file_name": "ai-contest-briefing-current.md",
+            "mime_type": "text/markdown;charset=utf-8",
+        },
     }
+    assert "source 1/1 성공" in result.content[0].text
+    assert "No stored runs." not in result.content[0].text
+    assert result.meta is not None
+    assert result.meta["briefing_document"]["content"].startswith("# AI 대회 브리핑")
 
 
 def test_mcp_registers_each_registry_source_tool_and_the_orchestrator():

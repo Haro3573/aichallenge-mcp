@@ -11,7 +11,7 @@
 | **source** | One operator-registered website or page family, identified by a stable `source_id`. |
 | **source adapter** | Code that knows one source's access policy, extraction rules, required fields, and validation. |
 | **source tool** | The public MCP tool exposing one source adapter's complete, source-specific result. It is model-callable for follow-up questions. |
-| **orchestrator** | The single MCP tool invoked by the ChatGPT Skill. It runs every registered source adapter concurrently and returns all source sections, including failures. |
+| **orchestrator** | The single MCP tool invoked by the ChatGPT Skill. It runs every registered source adapter concurrently; its conversation result is compact, while the complete current collection is delivered to its app card as an ephemeral Markdown document. |
 | **collection contract** | The source-specific definition of included records, required fields, access rules, and a valid result shape. |
 | **collection run** | One fresh invocation of the orchestrator. Its output is current data only; it has no historical state. |
 | **operator** | A maintainer who adds or changes registered sources in code and tests. This is not an end user. |
@@ -29,7 +29,7 @@
 - The orchestrator starts all registered sources in parallel. The operator keeps the set small (target maximum: 20 sources).
 - Each source has a 20-second timeout and one retry. One failed source must not block successful source results.
 - A source is successful only if it satisfies its collection contract. A zero-record result or required-field/shape failure is a collection failure, even when the HTTP request succeeded.
-- The orchestrator reports each source's name, canonical URL, collection time, success/failure state, full result, and warning/error details.
+- The orchestrator reports compact source status to the conversation. Its app card receives the complete normalized result as ephemeral tool-result metadata and can download it as Markdown; no document is persisted by the server.
 - Direct source tools return their native, complete source-specific result without an imposed shared item schema.
 
 ## Historical state
