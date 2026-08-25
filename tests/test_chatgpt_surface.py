@@ -22,19 +22,25 @@ def test_mcp_exposes_only_the_orchestrator_and_registered_source_tools():
     assert "refresh_and_brief" not in server.mcp.instructions
     assert "Never claim" in server.mcp.instructions
     assert "Never compare" in server.mcp.instructions
+    assert "call no direct source tool" in server.mcp.instructions
     assert any("history" in (tool.description or "").lower() for tool in tools)
     orchestrator = next(tool for tool in tools if tool.name == "collect_all_sources")
-    assert orchestrator.meta["ui"]["resourceUri"] == "ui://ai-contest-briefing/briefing-document-v1.html"
+    assert orchestrator.meta["ui"]["resourceUri"] == "ui://ai-contest-briefing/briefing-document-v2.html"
 
 
 def test_mcp_exposes_the_orchestrator_download_widget_resource():
     from aichallenge_mcp import server
 
     resources = asyncio.run(server.mcp.list_resources())
-    resource = next(item for item in resources if item.uri == "ui://ai-contest-briefing/briefing-document-v1.html")
+    resource = next(item for item in resources if item.uri == "ui://ai-contest-briefing/briefing-document-v2.html")
     contents = asyncio.run(server.mcp.read_resource(resource.uri))
 
     assert resource.mime_type == "text/html;profile=mcp-app"
+    assert resource.meta["ui"] == {
+        "prefersBorder": True,
+        "domain": "https://ai-contest-briefing.example",
+        "csp": {"connectDomains": [], "resourceDomains": []},
+    }
     assert "ui/notifications/tool-result" in contents[0].content
     assert "briefing_document" in contents[0].content
     assert "Markdown 문서 다운로드" in contents[0].content

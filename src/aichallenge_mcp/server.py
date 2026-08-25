@@ -23,7 +23,12 @@ mcp = MCPServer(
     version="0.1.0",
     instructions=(
         "For a current AI competition briefing, you MUST call collect_all_sources before "
-        "answering. Do not substitute web search or prior conversation. This server collects "
+        "answering. For that initial briefing turn, call no direct source tool after "
+        "collect_all_sources: it intentionally provides a compact status summary and an app "
+        "card with the full current Markdown document. Do not reproduce every competition in "
+        "the chat, and tell the user to use the card's Markdown download instead. Direct source "
+        "tools are only for a later, user-requested source-specific follow-up. Do not substitute "
+        "web search or prior conversation. This server collects "
         "only its operator-registered public sources and returns fresh, source-separated data. "
         "It is stateless: it stores no prior runs, snapshots, or change history. Never compare "
         "results against this conversation, prior conversations, memory, or any other data. "
@@ -151,6 +156,15 @@ async def collect_devpost_hackathons() -> str:
     name="AI 대회 브리핑 문서",
     description="현재 수집 결과를 Markdown 파일로 내려받는 AI 대회 브리핑 앱 화면입니다.",
     mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            # This view has no third-party network or asset dependency.  A
+            # dedicated origin still isolates the iframe from other app UIs.
+            "domain": "https://ai-contest-briefing.example",
+            "csp": {"connectDomains": [], "resourceDomains": []},
+        }
+    },
 )
 def briefing_document_ui() -> str:
     """Provide the optional in-ChatGPT download UI for the orchestrator."""

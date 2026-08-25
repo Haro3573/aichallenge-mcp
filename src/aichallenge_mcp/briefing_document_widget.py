@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-BRIEFING_DOCUMENT_UI_URI = "ui://ai-contest-briefing/briefing-document-v1.html"
+BRIEFING_DOCUMENT_UI_URI = "ui://ai-contest-briefing/briefing-document-v2.html"
 
 
 BRIEFING_DOCUMENT_UI_HTML = """<!doctype html>
