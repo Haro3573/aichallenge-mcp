@@ -81,6 +81,7 @@ def test_chatgpt_skill_calls_only_the_collection_orchestrator():
     assert "`search`" not in skill
     assert "`fetch`" not in skill
     assert "native file/document creation capability" in skill
+    assert "reader-friendly Korean Markdown **report**" in skill
 
 
 def test_distributable_skill_archives_match_the_orchestrator_workflow():
@@ -93,5 +94,6 @@ def test_distributable_skill_archives_match_the_orchestrator_workflow():
 
         assert "collect_all_sources" in skill
         assert "native file/document creation capability" in skill
+        assert "reader-friendly Korean Markdown **report**" in skill
         assert "refresh_and_brief" not in skill
         assert "collect every registered" in manifest

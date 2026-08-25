@@ -11,8 +11,21 @@ The user invoked this skill to receive a current Korean briefing from the instal
 
 1. Locate the connected **AI 대회 브리핑** app and call `collect_all_sources` immediately, with no arguments. This is mandatory even if the user did not provide a written request after invoking the skill.
 2. Treat `structuredContent.collection` as the complete current normalized data and `structuredContent.summary` as its compact status. This is fresh data, not a stored index or a comparison with earlier runs.
-3. Use ChatGPT's native file/document creation capability to write the full result as one Markdown document when that capability is available. The document must preserve source sections, original URLs, success/failure states, warnings, errors, and all normalized item fields. The MCP app itself never creates or downloads a document.
+3. Use ChatGPT's native file/document creation capability to write one reader-friendly Korean Markdown **report** when that capability is available. This is an operator-facing briefing, never a raw JSON/data export. The MCP app itself never creates or downloads a document.
 4. Return a compact Korean briefing with the collection time, `N/M` source success count, total item count, and only failed-source errors or warnings. Link or attach the ChatGPT-created document. Do not reproduce every item in the chat.
+
+## Report format
+
+Write the document in Korean with this exact information hierarchy. Use only facts in `structuredContent.collection`; do not add opinions, eligibility assumptions, or invented deadlines.
+
+1. **제목과 기준 시각** — `AI 대회·해커톤 최신 브리핑` and the collection timestamp.
+2. **한눈에 보기** — source success count, total item count, and only meaningful collection warnings.
+3. **우선 확인할 기회** — concise bullets for actionable items whose returned status, deadline, or remaining time supports priority. Explain the factual signal (for example, an imminent returned deadline); do not rank items when the data has no priority signal.
+4. **현재 참여 가능한 대회** — source-separated sections. For each item, present a compact table or consistent bullet card with title, status, deadline/remaining time, prize, organizer, location, and original link when those fields exist. Use Korean labels and omit unavailable fields instead of printing `null`, `-`, internal IDs, or raw objects.
+5. **참고·준비중·연습 항목** — place non-actionable or practice/preparation entries in a shorter separate section so they do not obscure open opportunities.
+6. **수집 상태와 주의사항** — source URL, success/failure, warnings, and errors. A failed source must be described as a collection issue, never as proof that a contest closed or disappeared.
+
+Keep all useful normalized facts, but transform them into readable prose and tables. Do not dump every field verbatim, include transport/internal fields, or duplicate the same item in multiple sections. Name the file `ai-contest-briefing-report-YYYY-MM-DD.md` using the collection date when available.
 
 ## Safety and failure behavior
 
