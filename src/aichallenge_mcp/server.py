@@ -117,9 +117,10 @@ async def collect_dacon_competitions() -> str:
 async def collect_kaggle_competitions() -> str:
     """Collect active Kaggle competitions with Online location only.
 
-    The source uses Kaggle's public anonymous listing route, does not require a
-    Kaggle account or API key, and excludes any entry whose public text signals
-    an in-person or offline participation requirement.
+    The source uses Kaggle's official authenticated API. It requires the runtime
+    environment to provide KAGGLE_API_TOKEN, or both KAGGLE_USERNAME and
+    KAGGLE_KEY; credentials are never returned. Entries whose public metadata
+    signals in-person or offline participation are excluded.
     """
     return json_text(await kaggle_source.collect())
 

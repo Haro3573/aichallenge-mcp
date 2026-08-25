@@ -9,7 +9,7 @@ ChatGPT의 **AI 대회 브리핑** 앱이 운영자 등록 공개 소스에서 A
 - `collect_all_sources`: 모든 등록 source를 동시에 수집하는 기본 오케스트레이터입니다. source별 전체 결과, 원본 URL, 수집 시각, 성공/실패와 경고를 반환합니다. source마다 20초 제한과 1회 재시도를 적용하며, 한 source 실패가 다른 결과를 지우지 않습니다.
 - `collect_aichallenge4all`: `aichallenge4all.or.kr`의 현재 전체 결과를 반환하는 공개 source 도구입니다. ChatGPT가 후속 질문에서 직접 사용할 수 있습니다.
 - `collect_dacon_competitions`: `dacon.io/competitions`에서 현재 참여 가능한 공식 대회(`참가신청중`·`진행중`·`연습`)와 공개 상세 정보를 반환하는 source 도구입니다.
-- `collect_kaggle_competitions`: Kaggle 공개 목록의 활성 대회 중 원격 참여 정책을 만족하는 `location: Online` 항목만 반환하는 source 도구입니다. Kaggle 계정이나 API 키는 사용하지 않습니다.
+- `collect_kaggle_competitions`: Kaggle 공식 인증 API에서 활성 대회를 읽고, 원격 참여 정책을 만족하는 `location: Online` 항목만 반환하는 source 도구입니다. 런타임 환경에 `KAGGLE_API_TOKEN` 또는 `KAGGLE_USERNAME`·`KAGGLE_KEY`가 필요하며, 자격증명과 개인화 필드는 반환하지 않습니다.
 - `collect_devpost_hackathons`: Devpost 공개 목록 API에서 현재 접수 중인 해커톤을 반환하는 source 도구입니다. 온라인·오프라인 위치는 필터링하지 않고 원본 `location` 필드로 제공합니다. Devpost 계정이나 API 키는 사용하지 않습니다.
 
 수집 결과는 상태가 없습니다. SQLite, 이전 실행 결과, 신규·변경 비교, stale fallback, 아카이브는 사용하지 않습니다.
@@ -24,6 +24,19 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 python -m aichallenge_mcp.server
+```
+
+Kaggle source를 함께 수집하려면 Kaggle 계정의 API 토큰을 로컬 런타임 환경에 설정합니다. 토큰 값을 `.env`, 저장소, 로그, ChatGPT 대화에 넣지 않습니다.
+
+```bash
+export KAGGLE_API_TOKEN='...'
+```
+
+레거시 키 쌍도 지원합니다.
+
+```bash
+export KAGGLE_USERNAME='...'
+export KAGGLE_KEY='...'
 ```
 
 서버는 기본적으로 `http://127.0.0.1:8000/mcp`에서 Streamable HTTP MCP를 제공합니다.
