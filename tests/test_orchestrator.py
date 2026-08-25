@@ -210,7 +210,7 @@ def test_orchestrator_cancels_a_timed_out_adapter_before_retrying():
     assert adapter.cancellations == 2
 
 
-def test_mcp_orchestrator_tool_exposes_a_compact_summary_and_ephemeral_document(monkeypatch):
+def test_mcp_orchestrator_tool_exposes_summary_and_model_ready_collection(monkeypatch):
     from aichallenge_mcp import server
 
     class StubOrchestrator:
@@ -230,19 +230,25 @@ def test_mcp_orchestrator_tool_exposes_a_compact_summary_and_ephemeral_document(
     result = asyncio.run(server.collect_all_sources())
 
     assert result.structured_content == {
-        "checked_at": None,
-        "counts": {"total": 1, "succeeded": 1, "failed": 0},
-        "item_count": 0,
-        "sources": [],
-        "document": {
-            "file_name": "ai-contest-briefing-current.md",
-            "mime_type": "text/markdown;charset=utf-8",
+        "summary": {
+            "checked_at": None,
+            "counts": {"total": 1, "succeeded": 1, "failed": 0},
+            "item_count": 0,
+            "sources": [],
+        },
+        "collection": {
+            "history_comparison": {
+                "available": False,
+                "reason": "No stored runs.",
+                "required_response_ko": "비교할 수 없습니다.",
+            },
+            "counts": {"total": 1, "succeeded": 1, "failed": 0},
+            "sources": [],
         },
     }
     assert "source 1/1 성공" in result.content[0].text
     assert "No stored runs." not in result.content[0].text
-    assert result.meta is not None
-    assert result.meta["briefing_document"]["content"].startswith("# AI 대회 브리핑")
+    assert result.meta is None
 
 
 def test_mcp_registers_each_registry_source_tool_and_the_orchestrator():

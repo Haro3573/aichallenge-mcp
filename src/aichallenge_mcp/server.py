@@ -8,8 +8,7 @@ from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 
-from .briefing_document import compact_summary, render_markdown_document
-from .briefing_document_widget import BRIEFING_DOCUMENT_UI_HTML, BRIEFING_DOCUMENT_UI_URI
+from .briefing_document import compact_summary, normalized_collection
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 from .sources.dacon import DaconSourceAdapter
@@ -24,10 +23,11 @@ mcp = MCPServer(
     instructions=(
         "For a current AI competition briefing, you MUST call collect_all_sources before "
         "answering. For that initial briefing turn, call no direct source tool after "
-        "collect_all_sources: it intentionally provides a compact status summary and an app "
-        "card with the full current Markdown document. Do not reproduce every competition in "
-        "the chat, and tell the user to use the card's Markdown download instead. Direct source "
-        "tools are only for a later, user-requested source-specific follow-up. Do not substitute "
+        "collect_all_sources: it returns a compact status summary and complete normalized "
+        "current data in structured content. Use that data to make a native ChatGPT Markdown "
+        "document when the client supports file creation. Do not reproduce every competition in "
+        "the chat. Direct source tools are only for a later, user-requested source-specific "
+        "follow-up. Do not substitute "
         "web search or prior conversation. This server collects "
         "only its operator-registered public sources and returns fresh, source-separated data. "
         "It is stateless: it stores no prior runs, snapshots, or change history. Never compare "
@@ -151,26 +151,6 @@ async def collect_devpost_hackathons() -> str:
     return json_text(await devpost_source.collect())
 
 
-@mcp.resource(
-    BRIEFING_DOCUMENT_UI_URI,
-    name="AI 대회 브리핑 문서",
-    description="현재 수집 결과를 Markdown 파일로 내려받는 AI 대회 브리핑 앱 화면입니다.",
-    mime_type="text/html;profile=mcp-app",
-    meta={
-        "ui": {
-            "prefersBorder": True,
-            # This view has no third-party network or asset dependency.  A
-            # dedicated origin still isolates the iframe from other app UIs.
-            "domain": "https://ai-contest-briefing.example",
-            "csp": {"connectDomains": [], "resourceDomains": []},
-        }
-    },
-)
-def briefing_document_ui() -> str:
-    """Provide the optional in-ChatGPT download UI for the orchestrator."""
-    return BRIEFING_DOCUMENT_UI_HTML
-
-
 @mcp.tool(
     name="collect_all_sources",
     annotations=ToolAnnotations(
@@ -181,17 +161,16 @@ def briefing_document_ui() -> str:
         open_world_hint=False,
     ),
     meta={
-        "ui": {"resourceUri": BRIEFING_DOCUMENT_UI_URI},
         "openai/toolInvocation/invoking": "AI 대회 정보를 수집하는 중입니다…",
-        "openai/toolInvocation/invoked": "브리핑 문서를 준비했습니다.",
+        "openai/toolInvocation/invoked": "AI 대회 정보 수집을 마쳤습니다.",
     },
 )
 async def collect_all_sources() -> CallToolResult:
     """Collect every registered public source concurrently.
 
-    Returns a compact conversation summary and an optional MCP Apps Markdown
-    download. A failed source is retried once and reported without discarding
-    successful source results.
+    Returns a compact conversation summary plus complete normalized data for
+    the model to present or turn into a native ChatGPT document. A failed
+    source is retried once and reported without discarding successful results.
     This server is stateless: it cannot compare against conversation context,
     prior runs, snapshots, or any other history. For a history request, do not
     call this tool; use history_comparison.required_response_ko instead.
@@ -203,16 +182,13 @@ async def collect_all_sources() -> CallToolResult:
         "AI 대회 수집 완료: "
         f"source {counts.get('succeeded', 0)}/{counts.get('total', 0)} 성공, "
         f"항목 {summary['item_count']}건입니다. "
-        "전체 현재 결과는 앱 카드의 ‘Markdown 문서 다운로드’에서 받을 수 있습니다."
+        "전체 정규화 데이터는 structured content에 제공됩니다."
     )
     return CallToolResult(
         content=[TextContent(type="text", text=text)],
-        structuredContent=summary,
-        _meta={
-            "briefing_document": {
-                **summary["document"],
-                "content": render_markdown_document(collection),
-            }
+        structuredContent={
+            "summary": summary,
+            "collection": normalized_collection(collection),
         },
     )
 
