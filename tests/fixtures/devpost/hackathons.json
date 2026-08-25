@@ -1,0 +1,46 @@
+{
+  "hackathons": [
+    {
+      "id": 30721,
+      "title": "Agentic Cinema: The Blockbuster Hackathon",
+      "displayed_location": {"icon": "globe", "location": "Online"},
+      "open_state": "open",
+      "url": "https://agentic-cinema.devpost.com/",
+      "time_left_to_submission": "16 days left",
+      "submission_period_dates": "Jul 27 - Sep 09, 2026",
+      "themes": [{"id": 6, "name": "Machine Learning/AI"}],
+      "prize_amount": "$<span data-currency-value>75,000</span>",
+      "registrations_count": 8167,
+      "organization_name": "Google"
+    },
+    {
+      "id": 30011,
+      "title": "City Builder Weekend",
+      "displayed_location": {"icon": "map-marker", "location": "New York, NY"},
+      "open_state": "open",
+      "url": "https://city-builder-weekend.devpost.com/",
+      "time_left_to_submission": "2 days left",
+      "submission_period_dates": "Aug 20 - Aug 27, 2026",
+      "themes": [],
+      "prize_amount": "",
+      "registrations_count": 42,
+      "organization_name": "Devpost"
+    },
+    {
+      "id": 29001,
+      "title": "Already closed challenge",
+      "displayed_location": {"icon": "globe", "location": "Online"},
+      "open_state": "closed",
+      "url": "https://closed-challenge.devpost.com/"
+    },
+    {
+      "id": 29002,
+      "title": "Invite-only challenge",
+      "displayed_location": {"icon": "globe", "location": "Online"},
+      "open_state": "open",
+      "invite_only": true,
+      "url": "https://invite-only.devpost.com/"
+    }
+  ],
+  "meta": {"total_count": 3, "per_page": 40, "fuzzy": false}
+}

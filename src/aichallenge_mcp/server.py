@@ -11,6 +11,7 @@ from mcp.types import ToolAnnotations
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 from .sources.dacon import DaconSourceAdapter
+from .sources.devpost import DevpostSourceAdapter
 from .sources.kaggle import KaggleSourceAdapter
 from .sources.registry import SourceRegistration, SourceRegistry
 
@@ -37,6 +38,7 @@ mcp = MCPServer(
 aichallenge4all_source = Aichallenge4allSourceAdapter()
 dacon_source = DaconSourceAdapter()
 kaggle_source = KaggleSourceAdapter()
+devpost_source = DevpostSourceAdapter()
 source_registry = SourceRegistry(
     (
         SourceRegistration(
@@ -50,6 +52,10 @@ source_registry = SourceRegistry(
         SourceRegistration(
             adapter=kaggle_source,
             public_tool_name="collect_kaggle_competitions",
+        ),
+        SourceRegistration(
+            adapter=devpost_source,
+            public_tool_name="collect_devpost_hackathons",
         ),
     )
 )
@@ -116,6 +122,25 @@ async def collect_kaggle_competitions() -> str:
     an in-person or offline participation requirement.
     """
     return json_text(await kaggle_source.collect())
+
+
+@mcp.tool(
+    name="collect_devpost_hackathons",
+    annotations=ToolAnnotations(
+        title="Collect open Devpost hackathons",
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
+async def collect_devpost_hackathons() -> str:
+    """Collect current public Devpost hackathons open for submissions.
+
+    The source uses Devpost's anonymous public listing API, includes all listed
+    participation locations as source-native data, and requires no account or API key.
+    """
+    return json_text(await devpost_source.collect())
 
 
 @mcp.tool(

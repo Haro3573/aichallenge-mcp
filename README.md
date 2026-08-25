@@ -10,6 +10,7 @@ ChatGPT의 **AI 대회 브리핑** 앱이 운영자 등록 공개 소스에서 A
 - `collect_aichallenge4all`: `aichallenge4all.or.kr`의 현재 전체 결과를 반환하는 공개 source 도구입니다. ChatGPT가 후속 질문에서 직접 사용할 수 있습니다.
 - `collect_dacon_competitions`: `dacon.io/competitions`에서 현재 참여 가능한 공식 대회(`참가신청중`·`진행중`·`연습`)와 공개 상세 정보를 반환하는 source 도구입니다.
 - `collect_kaggle_competitions`: Kaggle 공개 목록의 활성 대회 중 원격 참여 정책을 만족하는 `location: Online` 항목만 반환하는 source 도구입니다. Kaggle 계정이나 API 키는 사용하지 않습니다.
+- `collect_devpost_hackathons`: Devpost 공개 목록 API에서 현재 접수 중인 해커톤을 반환하는 source 도구입니다. 온라인·오프라인 위치는 필터링하지 않고 원본 `location` 필드로 제공합니다. Devpost 계정이나 API 키는 사용하지 않습니다.
 
 수집 결과는 상태가 없습니다. SQLite, 이전 실행 결과, 신규·변경 비교, stale fallback, 아카이브는 사용하지 않습니다.
 
