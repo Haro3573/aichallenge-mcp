@@ -239,6 +239,10 @@ class RuntimeController:
             print("Secure Tunnel client is already ready.")
             return 0
         self._require_tunnel_prerequisites()
+        if self._keychain_reader(self.paths.keychain_service) is None:
+            raise RuntimeConfigurationError(
+                "macOS Keychain does not contain the required Secure Tunnel runtime credential"
+            )
         self._ensure_runtime_directories()
         self._spawn(
             [str(self.paths.python), "-m", "aichallenge_mcp.runtime", "run-tunnel", "--config", str(self.paths.tunnel_config)],

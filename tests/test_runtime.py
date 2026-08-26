@@ -4,10 +4,13 @@ from pathlib import Path
 import plistlib
 import socket
 
+import pytest
+
 from aichallenge_mcp.runtime import (
     LAUNCH_AGENT_SERVER_LABEL,
     LAUNCH_AGENT_TUNNEL_LABEL,
     RuntimeController,
+    RuntimeConfigurationError,
     RuntimePaths,
     _server_port_is_bound,
     launch_agent_plist,
@@ -87,6 +90,14 @@ def test_doctor_reports_missing_keychain_credential_without_secret(tmp_path: Pat
 
 def test_launch_agent_labels_are_distinct_for_both_supervised_processes():
     assert LAUNCH_AGENT_SERVER_LABEL != LAUNCH_AGENT_TUNNEL_LABEL
+
+
+def test_start_tunnel_refuses_to_spawn_without_a_keychain_credential(tmp_path: Path):
+    controller = RuntimeController(paths(tmp_path), keychain_reader=lambda _: None)
+    controller._spawn = lambda *_: pytest.fail("tunnel process must not start")  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeConfigurationError, match="Keychain"):
+        controller.start_tunnel()
 
 
 def test_server_port_check_detects_a_listener_without_starting_another_server():
