@@ -210,7 +210,7 @@ def test_orchestrator_cancels_a_timed_out_adapter_before_retrying():
     assert adapter.cancellations == 2
 
 
-def test_mcp_orchestrator_tool_exposes_summary_and_model_ready_collection(monkeypatch):
+def test_mcp_orchestrator_tool_exposes_summary_and_lossless_columnar_collection(monkeypatch):
     from aichallenge_mcp import server
 
     class StubOrchestrator:
@@ -243,6 +243,7 @@ def test_mcp_orchestrator_tool_exposes_summary_and_model_ready_collection(monkey
                 "required_response_ko": "비교할 수 없습니다.",
             },
             "counts": {"total": 1, "succeeded": 1, "failed": 0},
+            "format": "aichallenge-mcp.columnar.v1",
             "sources": [],
         },
     }

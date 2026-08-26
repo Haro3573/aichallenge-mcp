@@ -4,7 +4,7 @@ import asyncio
 import json
 
 from aichallenge_mcp.models import Competition
-from aichallenge_mcp.scraper import ScrapeResult
+from aichallenge_mcp.scraper import ScrapeResult, Scraper
 from aichallenge_mcp.sources.aichallenge4all import Aichallenge4allSourceAdapter
 
 
@@ -20,6 +20,38 @@ class StubScraper:
 
 def collect(source: Aichallenge4allSourceAdapter) -> dict:
     return asyncio.run(source.collect())
+
+
+def test_detail_pages_are_fetched_with_bounded_concurrency(monkeypatch):
+    monkeypatch.setenv("AI_CHALLENGE_DETAIL_CONCURRENCY", "2")
+    monkeypatch.setattr("aichallenge_mcp.scraper.SEED_PATHS", ("/test",))
+    listing = "".join(
+        f'<a href="/competitions/test-{index}">테스트 대회 {index} 진행중</a>'
+        for index in range(4)
+    )
+    active = 0
+    peak = 0
+
+    async def fake_fetch(_client, url: str) -> str:
+        nonlocal active, peak
+        if url.endswith("/test"):
+            return listing
+        active += 1
+        peak = max(peak, active)
+        try:
+            await asyncio.sleep(0.01)
+            return "대회일정 2026-08-01 접수기간 2026-07-01 문의 contact@example.test"
+        finally:
+            active -= 1
+
+    scraper = Scraper()
+    monkeypatch.setattr(scraper, "fetch_html", fake_fetch)
+
+    result = asyncio.run(scraper.scrape())
+
+    assert peak == 2
+    assert [item.schedule for item in result.items] == ["2026-08-01"] * 4
+    assert result.warnings == []
 
 
 def test_collect_returns_current_source_native_items_and_audit_metadata():

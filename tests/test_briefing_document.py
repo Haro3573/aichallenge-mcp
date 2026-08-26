@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from aichallenge_mcp.briefing_document import compact_summary, normalized_collection
+from aichallenge_mcp.briefing_document import (
+    compact_collection,
+    compact_summary,
+    expand_compact_collection,
+    normalized_collection,
+)
 
 
 def collection() -> dict:
@@ -57,3 +62,15 @@ def test_normalized_collection_keeps_public_fields_and_omits_raw_transport_paylo
     assert payload["sources"][1]["error"] == "collection timed out"
     assert "transport-only" not in str(payload)
     assert "raw" not in str(payload)
+
+
+def test_compact_collection_preserves_every_normalized_item_field_in_columnar_form():
+    normalized = normalized_collection(collection())
+    compact = compact_collection(collection())
+
+    assert compact["format"] == "aichallenge-mcp.columnar.v1"
+    assert compact["sources"][0]["item_columns"] == ["detail_url", "status", "tags", "title"]
+    assert compact["sources"][0]["item_rows"] == [
+        ["https://example.test/challenge", "open", ["AI", "online"], "Example Challenge"]
+    ]
+    assert expand_compact_collection(compact) == normalized

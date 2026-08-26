@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 
 from aichallenge_mcp.sources.dacon import (
     SOURCE_URL,
+    DaconScraper,
     DaconScrapeResult,
     DaconSourceAdapter,
     extract_detail_fields,
@@ -15,6 +16,46 @@ from aichallenge_mcp.sources.dacon import (
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "dacon"
+
+
+def test_detail_pages_are_fetched_with_bounded_concurrency(monkeypatch):
+    monkeypatch.setenv("DACON_DETAIL_CONCURRENCY", "2")
+    listing = "".join(
+        (
+            '<div class="comp">'
+                f'<a href="/competitions/official/2367{index}/overview/">'
+                f'<span class="name">테스트 대회 {index}</span>'
+                '<span class="dday">진행중</span>'
+                '<span class="info2">알고리즘</span>'
+                '<span class="joinTeam">1명</span>'
+                '</a>'
+            '</div>'
+        )
+        for index in range(4)
+    )
+    active = 0
+    peak = 0
+
+    async def fake_fetch(_client, url: str) -> str:
+        nonlocal active, peak
+        if url == SOURCE_URL:
+            return listing
+        active += 1
+        peak = max(peak, active)
+        try:
+            await asyncio.sleep(0.01)
+            return "대회 주요 일정 2026-08-01 개요"
+        finally:
+            active -= 1
+
+    scraper = DaconScraper()
+    monkeypatch.setattr(scraper, "fetch_html", fake_fetch)
+
+    result = asyncio.run(scraper.scrape())
+
+    assert peak == 2
+    assert [item["schedule"] for item in result.items] == ["2026-08-01"] * 4
+    assert result.warnings == []
 
 
 def test_listing_fixture_collects_only_currently_actionable_competitions():

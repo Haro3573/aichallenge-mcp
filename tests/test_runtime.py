@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from aichallenge_mcp.runtime import (
+    KAGGLE_API_TOKEN_ENV,
     LAUNCH_AGENT_SERVER_LABEL,
     LAUNCH_AGENT_TUNNEL_LABEL,
     RuntimeController,
@@ -101,6 +102,24 @@ def test_tunnel_launch_agent_keeps_keychain_service_name_but_not_credential(tmp_
     assert "CONTROL_PLANE_API_KEY" not in encoded
 
 
+def test_server_launch_agent_keeps_kaggle_keychain_service_name_but_not_token(tmp_path: Path):
+    runtime_paths = replace(paths(tmp_path), kaggle_keychain_service="aichallenge-mcp-kaggle")
+    command = [
+        str(runtime_paths.python),
+        "-m",
+        "aichallenge_mcp.runtime",
+        "run-server",
+        "--kaggle-keychain-service",
+        runtime_paths.kaggle_keychain_service,
+    ]
+    plist = launch_agent_plist(label=LAUNCH_AGENT_SERVER_LABEL, program_arguments=command, paths=runtime_paths)
+    encoded = plistlib.dumps(plist).decode("utf-8")
+
+    assert "aichallenge-mcp-kaggle" in encoded
+    assert KAGGLE_API_TOKEN_ENV not in encoded
+    assert "EnvironmentVariables" not in plist
+
+
 def test_doctor_reports_missing_existing_tunnel_credential_without_secret(tmp_path: Path, capsys):
     runtime_paths = paths(tmp_path)
     controller = RuntimeController(runtime_paths, credential_reader=lambda _: None)
@@ -127,6 +146,15 @@ def test_runtime_parser_accepts_tunnel_configuration_after_the_command():
     assert args.keychain_service == "openai"
 
 
+def test_runtime_parser_accepts_kaggle_keychain_service_after_the_command():
+    args = build_parser().parse_args(
+        ["run-server", "--kaggle-keychain-service", "aichallenge-mcp-kaggle"]
+    )
+
+    assert args.command == "run-server"
+    assert args.kaggle_keychain_service == "aichallenge-mcp-kaggle"
+
+
 def test_start_tunnel_refuses_to_spawn_without_an_existing_tunnel_credential(tmp_path: Path):
     controller = RuntimeController(paths(tmp_path), credential_reader=lambda _: None)
     controller._spawn = lambda *_: pytest.fail("tunnel process must not start")  # type: ignore[method-assign]
@@ -141,6 +169,29 @@ def test_tunnel_daemon_clean_exit_is_restartable_for_launchd(tmp_path: Path, mon
     monkeypatch.setattr("aichallenge_mcp.runtime.subprocess.run", lambda *_args, **_kwargs: SimpleNamespace(returncode=0))
 
     assert controller.run_tunnel() == 1
+
+
+def test_server_daemon_reads_kaggle_token_from_keychain_only_at_runtime(tmp_path: Path, monkeypatch):
+    runtime_paths = replace(paths(tmp_path), kaggle_keychain_service="aichallenge-mcp-kaggle")
+    controller = RuntimeController(runtime_paths)
+    observed: dict[str, object] = {}
+
+    def fake_keychain_reader(service: str | None) -> str | None:
+        assert service == "aichallenge-mcp-kaggle"
+        return "not-printed-kaggle-token"
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        observed["environment"] = kwargs["env"]
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.delenv(KAGGLE_API_TOKEN_ENV, raising=False)
+    monkeypatch.setattr("aichallenge_mcp.runtime.keychain_generic_password", fake_keychain_reader)
+    monkeypatch.setattr("aichallenge_mcp.runtime.subprocess.run", fake_run)
+
+    assert controller.run_server() == 1
+    assert observed["command"] == [str(runtime_paths.python), "-m", "aichallenge_mcp.server"]
+    assert observed["environment"][KAGGLE_API_TOKEN_ENV] == "not-printed-kaggle-token"
 
 
 def test_server_port_check_detects_a_listener_without_starting_another_server():

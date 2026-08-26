@@ -28,6 +28,8 @@ LAUNCH_AGENT_SERVER_LABEL = "com.aichallenge-mcp.server"
 LAUNCH_AGENT_TUNNEL_LABEL = "com.aichallenge-mcp.tunnel"
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
 CONTROL_PLANE_API_KEY_ENV = "CONTROL_PLANE_API_KEY"
+KAGGLE_API_TOKEN_ENV = "KAGGLE_API_TOKEN"
+KAGGLE_KEYCHAIN_SERVICE_ENV = "AICHALLENGE_MCP_KAGGLE_KEYCHAIN_SERVICE"
 
 
 class RuntimeConfigurationError(RuntimeError):
@@ -47,6 +49,7 @@ class RuntimePaths:
     launch_agents_dir: Path
     server_url: str = DEFAULT_SERVER_URL
     keychain_service: str | None = None
+    kaggle_keychain_service: str | None = None
 
     @classmethod
     def from_environment(
@@ -56,6 +59,7 @@ class RuntimePaths:
         tunnel_config: str | None = None,
         tunnel_client: str | None = None,
         keychain_service: str | None = None,
+        kaggle_keychain_service: str | None = None,
     ) -> RuntimePaths:
         home = Path.home()
         resolved_project_dir = Path(
@@ -79,6 +83,9 @@ class RuntimePaths:
             launch_agents_dir=home / "Library/LaunchAgents",
             server_url=os.getenv("AICHALLENGE_MCP_SERVER_URL", DEFAULT_SERVER_URL).rstrip("/"),
             keychain_service=keychain_service or os.getenv("AICHALLENGE_MCP_KEYCHAIN_SERVICE"),
+            kaggle_keychain_service=(
+                kaggle_keychain_service or os.getenv(KAGGLE_KEYCHAIN_SERVICE_ENV)
+            ),
         )
 
 
@@ -154,6 +161,20 @@ def tunnel_health_url(config_path: Path) -> str | None:
     return None
 
 
+def keychain_generic_password(service: str | None) -> str | None:
+    """Read one generic-password item without exposing or persisting its value."""
+    if not service:
+        return None
+    keychain_result = subprocess.run(
+        ["/usr/bin/security", "find-generic-password", "-s", service, "-w"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    password = keychain_result.stdout.strip() if keychain_result.returncode == 0 else ""
+    return password or None
+
+
 def existing_tunnel_credential(keychain_service: str | None) -> str | None:
     """Reuse the credential resolution path of the existing Secure Tunnel profile.
 
@@ -174,16 +195,7 @@ def existing_tunnel_credential(keychain_service: str | None) -> str | None:
     launchd_secret = launchd_result.stdout.strip() if launchd_result.returncode == 0 else ""
     if launchd_secret:
         return launchd_secret
-    if not keychain_service:
-        return None
-    keychain_result = subprocess.run(
-        ["/usr/bin/security", "find-generic-password", "-s", keychain_service, "-w"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    keychain_secret = keychain_result.stdout.strip() if keychain_result.returncode == 0 else ""
-    return keychain_secret or None
+    return keychain_generic_password(keychain_service)
 
 
 def launch_agent_plist(*, label: str, program_arguments: list[str], paths: RuntimePaths) -> dict[str, Any]:
@@ -253,7 +265,17 @@ class RuntimeController:
             )
         self._ensure_runtime_directories()
         self._spawn(
-            [str(self.paths.python), "-m", "aichallenge_mcp.server"],
+            [
+                str(self.paths.python),
+                "-m",
+                "aichallenge_mcp.runtime",
+                "run-server",
+                *(
+                    ["--kaggle-keychain-service", self.paths.kaggle_keychain_service]
+                    if self.paths.kaggle_keychain_service
+                    else []
+                ),
+            ],
             self.paths.log_dir / "server.log",
             self.paths.log_dir / "server.error.log",
         )
@@ -299,10 +321,19 @@ class RuntimeController:
         return self.start_tunnel()
 
     def run_server(self) -> int:
-        from .server import main as server_main
-
-        server_main()
-        return 0
+        environment = os.environ.copy()
+        if KAGGLE_API_TOKEN_ENV not in environment:
+            kaggle_token = keychain_generic_password(self.paths.kaggle_keychain_service)
+            if kaggle_token:
+                environment[KAGGLE_API_TOKEN_ENV] = kaggle_token
+        completed = subprocess.run(
+            [str(self.paths.python), "-m", "aichallenge_mcp.server"],
+            check=False,
+            env=environment,
+        )
+        # Like the tunnel client, the server is a long-lived LaunchAgent daemon.
+        # A clean exit is unexpected and should be restarted by launchd.
+        return completed.returncode or 1
 
     def run_tunnel(self) -> int:
         self._require_tunnel_prerequisites()
@@ -342,7 +373,17 @@ class RuntimeController:
             server_path,
             launch_agent_plist(
                 label=LAUNCH_AGENT_SERVER_LABEL,
-                program_arguments=[str(self.paths.python), "-m", "aichallenge_mcp.runtime", "run-server"],
+                program_arguments=[
+                    str(self.paths.python),
+                    "-m",
+                    "aichallenge_mcp.runtime",
+                    "run-server",
+                    *(
+                        ["--kaggle-keychain-service", self.paths.kaggle_keychain_service]
+                        if self.paths.kaggle_keychain_service
+                        else []
+                    ),
+                ],
                 paths=self.paths,
             ),
         )
@@ -496,6 +537,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tunnel-config")
     parser.add_argument("--tunnel-client")
     parser.add_argument("--keychain-service")
+    parser.add_argument("--kaggle-keychain-service")
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument(
         "command",
@@ -511,6 +553,7 @@ def main() -> None:
         tunnel_config=args.tunnel_config,
         tunnel_client=args.tunnel_client,
         keychain_service=args.keychain_service,
+        kaggle_keychain_service=args.kaggle_keychain_service,
     )
     controller = RuntimeController(paths)
     handlers: dict[str, Callable[[], int]] = {

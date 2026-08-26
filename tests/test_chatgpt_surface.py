@@ -145,8 +145,14 @@ def test_chatgpt_skill_calls_only_the_collection_orchestrator():
     assert "get_active_overview" not in skill
     assert "`search`" not in skill
     assert "`fetch`" not in skill
-    assert "native file/document creation capability" in skill
-    assert "reader-friendly Korean Markdown **report**" in skill
+    assert "aichallenge-mcp.columnar.v1" in skill
+    assert "ai-contest-data-YYYY-MM-DD.json" in skill
+    assert "exactly `structuredContent.collection`" in skill
+    assert "Do not enumerate all competitions in the chat body" in skill
+    assert "only when the user explicitly asks" in skill
+    assert "## Follow-up conversation" in skill
+    assert "**Always write a visible Korean answer**" in skill
+    assert "For participation-fit questions or a request to conduct an interview" in skill
 
 
 def test_distributable_skill_archives_match_the_orchestrator_workflow():
@@ -158,7 +164,11 @@ def test_distributable_skill_archives_match_the_orchestrator_workflow():
             manifest = archive.read("ai-contest-briefing/agents/openai.yaml").decode()
 
         assert "collect_all_sources" in skill
-        assert "native file/document creation capability" in skill
-        assert "reader-friendly Korean Markdown **report**" in skill
+        assert "aichallenge-mcp.columnar.v1" in skill
+        assert "ai-contest-data-YYYY-MM-DD.json" in skill
+        assert "exactly `structuredContent.collection`" in skill
+        assert "only when the user explicitly asks" in skill
+        assert "## Follow-up conversation" in skill
+        assert "**Always write a visible Korean answer**" in skill
         assert "refresh_and_brief" not in skill
         assert "collect every registered" in manifest

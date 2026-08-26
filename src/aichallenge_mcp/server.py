@@ -13,7 +13,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
-from .briefing_document import compact_summary, normalized_collection
+from .briefing_document import compact_collection, compact_summary
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 from .sources.dacon import DaconSourceAdapter
@@ -28,10 +28,11 @@ mcp = MCPServer(
     instructions=(
         "For a current AI competition briefing, you MUST call collect_all_sources before "
         "answering. For that initial briefing turn, call no direct source tool after "
-        "collect_all_sources: it returns a compact status summary and complete normalized "
-        "current data in structured content. Use that data to make a native ChatGPT Markdown "
-        "document when the client supports file creation. Do not reproduce every competition in "
-        "the chat. Direct source tools are only for a later, user-requested source-specific "
+        "collect_all_sources: it returns a compact status summary and complete, lossless columnar "
+        "current data in structured content. For the initial briefing, make a concise Korean "
+        "summary only; do not create a file or reproduce every competition unless the user later "
+        "explicitly requests a complete report. Direct source tools are only for a later, "
+        "user-requested source-specific "
         "follow-up. Do not substitute "
         "web search or prior conversation. This server collects "
         "only its operator-registered public sources and returns fresh, source-separated data. "
@@ -252,8 +253,9 @@ async def collect_devpost_hackathons() -> str:
 async def collect_all_sources() -> CallToolResult:
     """Collect every registered public source concurrently.
 
-    Returns a compact conversation summary plus complete normalized data for
-    the model to present or turn into a native ChatGPT document. A failed
+    Returns a compact conversation summary plus complete lossless columnar data
+    for the model to present now or turn into a native ChatGPT document only on
+    a later explicit full-report request. A failed
     source is retried once and reported without discarding successful results.
     This server is stateless: it cannot compare against conversation context,
     prior runs, snapshots, or any other history. For a history request, do not
@@ -272,7 +274,7 @@ async def collect_all_sources() -> CallToolResult:
         content=[TextContent(type="text", text=text)],
         structuredContent={
             "summary": summary,
-            "collection": normalized_collection(collection),
+            "collection": compact_collection(collection),
         },
     )
 

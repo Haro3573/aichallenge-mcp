@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 import os
 import re
@@ -18,6 +19,17 @@ STATUS_RE = re.compile(r"(접수중|진행중|준비중|참가 마감|마감)")
 PRIZE_RE = re.compile(
     r"총\s*상금\s*.*?(?=(?:참가\s*접수중|진행중|준비중|참가\s*마감|마감)|$)"
 )
+DEFAULT_DETAIL_CONCURRENCY = 6
+MAXIMUM_DETAIL_CONCURRENCY = 8
+
+
+def bounded_concurrency(environment_name: str, default: int = DEFAULT_DETAIL_CONCURRENCY) -> int:
+    """Return a polite, bounded per-domain detail-page concurrency limit."""
+    try:
+        configured = int(os.getenv(environment_name, str(default)))
+    except ValueError:
+        configured = default
+    return min(max(configured, 1), MAXIMUM_DETAIL_CONCURRENCY)
 
 
 @dataclass(slots=True)
@@ -95,6 +107,7 @@ def extract_detail_fields(soup: BeautifulSoup) -> dict[str, str]:
 class Scraper:
     def __init__(self) -> None:
         self.timeout = float(os.getenv("AI_CHALLENGE_TIMEOUT", "20"))
+        self.detail_concurrency = bounded_concurrency("AI_CHALLENGE_DETAIL_CONCURRENCY")
         self.user_agent = os.getenv(
             "AI_CHALLENGE_USER_AGENT",
             "aichallenge-mcp/0.1 (+https://aichallenge4all.or.kr/)",
@@ -147,20 +160,32 @@ class Scraper:
                     failed_listing_pages.append(url)
                     warnings.append(f"목록 페이지 수집 실패: {url} ({exc})")
 
-            # Enrich internal detail pages. Failures do not erase the list item.
-            for item in list(candidates.values()):
+            # Enrich internal detail pages concurrently while keeping a polite,
+            # bounded connection count to the source domain. ``gather`` returns
+            # results in input order, preserving deterministic warnings/output.
+            detail_limit = asyncio.Semaphore(self.detail_concurrency)
+
+            async def enrich(item: Competition) -> tuple[str | None, str | None]:
                 if not item.detail_url:
-                    continue
+                    return None, None
                 try:
-                    html = await self.fetch_html(client, item.detail_url)
+                    async with detail_limit:
+                        html = await self.fetch_html(client, item.detail_url)
                     detail = extract_detail_fields(BeautifulSoup(html, "html.parser"))
                     item.schedule = detail["schedule"]
                     item.registration_period = detail["registration_period"]
                     item.contact = detail["contact"]
                     item.organizer = detail["organizer"]
-                    sources.append(item.detail_url)
+                    return item.detail_url, None
                 except Exception as exc:  # noqa: BLE001 - one bad page must not stop the run
-                    warnings.append(f"상세 페이지 수집 실패: {item.detail_url} ({exc})")
+                    return None, f"상세 페이지 수집 실패: {item.detail_url} ({exc})"
+
+            outcomes = await asyncio.gather(*(enrich(item) for item in candidates.values()))
+            for detail_url, warning in outcomes:
+                if detail_url:
+                    sources.append(detail_url)
+                if warning:
+                    warnings.append(warning)
 
         return ScrapeResult(
             items=list(candidates.values()),

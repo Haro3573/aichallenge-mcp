@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import os
@@ -11,6 +12,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from ..models import utc_now_iso
+from ..scraper import bounded_concurrency
 from .result import source_result
 
 
@@ -89,6 +91,7 @@ class DaconScrapeResult:
 class DaconScraper:
     def __init__(self) -> None:
         self._timeout = float(os.getenv("DACON_TIMEOUT", "20"))
+        self._detail_concurrency = bounded_concurrency("DACON_DETAIL_CONCURRENCY")
         self._user_agent = os.getenv(
             "DACON_USER_AGENT",
             "aichallenge-mcp/0.1 (+https://dacon.io/competitions)",
@@ -116,13 +119,23 @@ class DaconScraper:
 
             source_pages.append(SOURCE_URL)
             items = extract_listing_items(BeautifulSoup(listing_html, "html.parser"))
-            for item in items:
+            detail_limit = asyncio.Semaphore(self._detail_concurrency)
+
+            async def enrich(item: dict[str, Any]) -> tuple[str | None, str | None]:
                 try:
-                    detail_html = await self.fetch_html(client, item["detail_url"])
+                    async with detail_limit:
+                        detail_html = await self.fetch_html(client, item["detail_url"])
                     item.update(extract_detail_fields(BeautifulSoup(detail_html, "html.parser")))
-                    source_pages.append(item["detail_url"])
+                    return item["detail_url"], None
                 except Exception as exc:  # noqa: BLE001 - a detail warning preserves the listing item
-                    warnings.append(f"상세 페이지 수집 실패: {item['detail_url']} ({exc})")
+                    return None, f"상세 페이지 수집 실패: {item['detail_url']} ({exc})"
+
+            outcomes = await asyncio.gather(*(enrich(item) for item in items))
+            for detail_url, warning in outcomes:
+                if detail_url:
+                    source_pages.append(detail_url)
+                if warning:
+                    warnings.append(warning)
 
         return DaconScrapeResult(
             items=items,
