@@ -87,17 +87,17 @@ aichallenge-mcp-runtime up
 ```
 
 Mac 로그인 후에도 자동으로 복구하려면, OpenAI Secure Tunnel의 **runtime
-control-plane credential**을 macOS Keychain에 운영자가 먼저 등록해야 합니다.
-이것은 대회 수집용 Kaggle 키나 모델 API 키와 다른, tunnel-client가 OpenAI
-control plane에 연결할 때만 쓰는 런타임 자격증명입니다. 등록한 뒤 다음 명령을
-한 번 실행합니다.
+control-plane credential**이 기존 Secure Tunnel 앱이 설정한 user `launchd`
+환경에 있어야 합니다. 복구기는 기존 profile의 `env:CONTROL_PLANE_API_KEY`
+참조 방식을 그대로 사용하며, 값을 출력·복사·저장하지 않습니다. 이 값은 대회
+수집용 Kaggle 키나 모델 API 키와 다른 tunnel-client 런타임 자격증명입니다.
+기존 앱을 이미 사용했다면 별도 Keychain 등록 없이 다음 명령만 한 번 실행합니다.
 
-Keychain 항목은 서비스 이름 `aichallenge-mcp.tunnel-control-plane`, 계정은 현재
-macOS 사용자명으로 등록합니다. 자격증명 값은 Keychain에만 입력하고, 터미널,
-`.env`, 저장소, ChatGPT 대화에는 넣지 않습니다.
+기존 OpenAI 키가 Keychain에만 있다면 서비스 이름을 지정해 같은 항목을
+런타임에만 참조할 수 있습니다. 서비스 이름은 비밀값이 아닙니다.
 
 ```bash
-aichallenge-mcp-runtime install-launchd
+aichallenge-mcp-runtime --keychain-service '<기존-Keychain-서비스-이름>' install-launchd
 ```
 
 설치되면 두 개의 user LaunchAgent가 로그인 시 시작되고, 서버 또는

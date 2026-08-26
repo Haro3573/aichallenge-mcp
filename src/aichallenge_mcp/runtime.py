@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import getpass
 import json
 import os
 from pathlib import Path
@@ -27,8 +26,8 @@ from urllib.request import urlopen
 
 LAUNCH_AGENT_SERVER_LABEL = "com.aichallenge-mcp.server"
 LAUNCH_AGENT_TUNNEL_LABEL = "com.aichallenge-mcp.tunnel"
-KEYCHAIN_SERVICE = "aichallenge-mcp.tunnel-control-plane"
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
+CONTROL_PLANE_API_KEY_ENV = "CONTROL_PLANE_API_KEY"
 
 
 class RuntimeConfigurationError(RuntimeError):
@@ -47,7 +46,7 @@ class RuntimePaths:
     log_dir: Path
     launch_agents_dir: Path
     server_url: str = DEFAULT_SERVER_URL
-    keychain_service: str = KEYCHAIN_SERVICE
+    keychain_service: str | None = None
 
     @classmethod
     def from_environment(
@@ -56,6 +55,7 @@ class RuntimePaths:
         project_dir: str | None = None,
         tunnel_config: str | None = None,
         tunnel_client: str | None = None,
+        keychain_service: str | None = None,
     ) -> RuntimePaths:
         home = Path.home()
         resolved_project_dir = Path(
@@ -78,7 +78,7 @@ class RuntimePaths:
             log_dir=home / "Library/Logs/AIChallengeMCP",
             launch_agents_dir=home / "Library/LaunchAgents",
             server_url=os.getenv("AICHALLENGE_MCP_SERVER_URL", DEFAULT_SERVER_URL).rstrip("/"),
-            keychain_service=os.getenv("AICHALLENGE_MCP_KEYCHAIN_SERVICE", KEYCHAIN_SERVICE),
+            keychain_service=keychain_service or os.getenv("AICHALLENGE_MCP_KEYCHAIN_SERVICE"),
         )
 
 
@@ -119,6 +119,15 @@ def _safe_url_json(url: str, *, timeout: float = 2) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _http_endpoint_is_ok(url: str, *, timeout: float = 2) -> bool:
+    """Return readiness for local endpoints that intentionally use plain text."""
+    try:
+        with urlopen(url, timeout=timeout) as response:  # noqa: S310 - loopback URL is operator configured
+            return 200 <= response.status < 300
+    except (OSError, URLError):
+        return False
+
+
 def tunnel_health_url(config_path: Path) -> str | None:
     """Read only the non-secret loopback health address from the YAML profile."""
     configured = os.getenv("AICHALLENGE_TUNNEL_HEALTH_URL")
@@ -145,16 +154,36 @@ def tunnel_health_url(config_path: Path) -> str | None:
     return None
 
 
-def read_keychain_secret(service: str) -> str | None:
-    """Read an operator-provisioned Keychain item without exposing its value."""
-    result = subprocess.run(
-        ["/usr/bin/security", "find-generic-password", "-a", getpass.getuser(), "-s", service, "-w"],
+def existing_tunnel_credential(keychain_service: str | None) -> str | None:
+    """Reuse the credential resolution path of the existing Secure Tunnel profile.
+
+    Existing local tunnel profiles commonly refer to ``env:CONTROL_PLANE_API_KEY``.
+    A LaunchAgent inherits that value from the user launchd environment. A manual
+    ``up`` invocation resolves that value first, then an explicitly selected
+    macOS Keychain item, without printing either value.
+    """
+    from_process = os.getenv(CONTROL_PLANE_API_KEY_ENV)
+    if from_process:
+        return from_process
+    launchd_result = subprocess.run(
+        ["/bin/launchctl", "getenv", CONTROL_PLANE_API_KEY_ENV],
         check=False,
         capture_output=True,
         text=True,
     )
-    secret = result.stdout.strip() if result.returncode == 0 else ""
-    return secret or None
+    launchd_secret = launchd_result.stdout.strip() if launchd_result.returncode == 0 else ""
+    if launchd_secret:
+        return launchd_secret
+    if not keychain_service:
+        return None
+    keychain_result = subprocess.run(
+        ["/usr/bin/security", "find-generic-password", "-s", keychain_service, "-w"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    keychain_secret = keychain_result.stdout.strip() if keychain_result.returncode == 0 else ""
+    return keychain_secret or None
 
 
 def launch_agent_plist(*, label: str, program_arguments: list[str], paths: RuntimePaths) -> dict[str, Any]:
@@ -181,10 +210,10 @@ class RuntimeController:
         self,
         paths: RuntimePaths,
         *,
-        keychain_reader: Callable[[str], str | None] = read_keychain_secret,
+        credential_reader: Callable[[str | None], str | None] = existing_tunnel_credential,
     ) -> None:
         self.paths = paths
-        self._keychain_reader = keychain_reader
+        self._credential_reader = credential_reader
 
     def checks(self, *, verify_tunnel_config: bool = False) -> list[Check]:
         checks = [
@@ -239,13 +268,21 @@ class RuntimeController:
             print("Secure Tunnel client is already ready.")
             return 0
         self._require_tunnel_prerequisites()
-        if self._keychain_reader(self.paths.keychain_service) is None:
+        if self._credential_reader(self.paths.keychain_service) is None:
             raise RuntimeConfigurationError(
-                "macOS Keychain does not contain the required Secure Tunnel runtime credential"
+                "the existing Secure Tunnel runtime credential is unavailable in the user launchd environment"
             )
         self._ensure_runtime_directories()
         self._spawn(
-            [str(self.paths.python), "-m", "aichallenge_mcp.runtime", "run-tunnel", "--config", str(self.paths.tunnel_config)],
+            [
+                str(self.paths.python),
+                "-m",
+                "aichallenge_mcp.runtime",
+                "run-tunnel",
+                "--tunnel-config",
+                str(self.paths.tunnel_config),
+                *(["--keychain-service", self.paths.keychain_service] if self.paths.keychain_service else []),
+            ],
             self.paths.log_dir / "tunnel.log",
             self.paths.log_dir / "tunnel.error.log",
         )
@@ -269,19 +306,21 @@ class RuntimeController:
 
     def run_tunnel(self) -> int:
         self._require_tunnel_prerequisites()
-        secret = self._keychain_reader(self.paths.keychain_service)
+        secret = self._credential_reader(self.paths.keychain_service)
         if secret is None:
             raise RuntimeConfigurationError(
-                "macOS Keychain does not contain the required Secure Tunnel runtime credential"
+                "the existing Secure Tunnel runtime credential is unavailable in the user launchd environment"
             )
         environment = os.environ.copy()
-        environment["CONTROL_PLANE_API_KEY"] = secret
+        environment[CONTROL_PLANE_API_KEY_ENV] = secret
         completed = subprocess.run(
             [str(self.paths.tunnel_client), "run", "--config", str(self.paths.tunnel_config)],
             check=False,
             env=environment,
         )
-        return completed.returncode
+        # This command is only used as a long-lived launchd daemon. A clean
+        # exit is still unexpected for that daemon and must trigger KeepAlive.
+        return completed.returncode or 1
 
     def install_launchd(self) -> int:
         self._require_local_server_prerequisites()
@@ -290,13 +329,10 @@ class RuntimeController:
             raise RuntimeConfigurationError(
                 "the MCP port is occupied by a process that does not expose the required /readyz endpoint"
             )
-        if self._keychain_reader(self.paths.keychain_service) is None:
+        if self._credential_reader(self.paths.keychain_service) is None:
             raise RuntimeConfigurationError(
-                "Refusing to install LaunchAgents: the Secure Tunnel runtime credential is not in macOS Keychain"
+                "Refusing to install LaunchAgents: the existing Secure Tunnel runtime credential is unavailable"
             )
-        config_check = self._tunnel_config_check()
-        if not config_check.ok:
-            raise RuntimeConfigurationError("Refusing to install LaunchAgents: tunnel configuration is not ready")
 
         self._ensure_runtime_directories()
         self.paths.launch_agents_dir.mkdir(parents=True, exist_ok=True)
@@ -310,6 +346,17 @@ class RuntimeController:
                 paths=self.paths,
             ),
         )
+        self._bootout_if_loaded(server_path)
+        self._run_launchctl("bootstrap", f"gui/{os.getuid()}", str(server_path))
+        if not self._wait_for(lambda: self._server_check().ok, attempts=30):
+            self._remove_launch_agent(LAUNCH_AGENT_SERVER_LABEL, server_path)
+            raise RuntimeConfigurationError("LaunchAgent could not start the MCP server")
+
+        config_check = self._tunnel_config_check()
+        if not config_check.ok:
+            self._remove_launch_agent(LAUNCH_AGENT_SERVER_LABEL, server_path)
+            raise RuntimeConfigurationError("Refusing to install LaunchAgents: tunnel configuration is not ready")
+
         self._write_plist(
             tunnel_path,
             launch_agent_plist(
@@ -319,17 +366,21 @@ class RuntimeController:
                     "-m",
                     "aichallenge_mcp.runtime",
                     "run-tunnel",
-                    "--config",
+                    "--tunnel-config",
                     str(self.paths.tunnel_config),
+                    *(["--keychain-service", self.paths.keychain_service] if self.paths.keychain_service else []),
                 ],
                 paths=self.paths,
             ),
         )
-        for path in (server_path, tunnel_path):
-            self._bootout_if_loaded(path)
-            self._run_launchctl("bootstrap", f"gui/{os.getuid()}", str(path))
+        self._bootout_if_loaded(tunnel_path)
+        self._run_launchctl("bootstrap", f"gui/{os.getuid()}", str(tunnel_path))
+        if not self._wait_for(lambda: self._tunnel_check().ok, attempts=40):
+            self._remove_launch_agent(LAUNCH_AGENT_TUNNEL_LABEL, tunnel_path)
+            self._remove_launch_agent(LAUNCH_AGENT_SERVER_LABEL, server_path)
+            raise RuntimeConfigurationError("LaunchAgent could not start the Secure Tunnel client")
         print("Installed launchd self-healing agents for the MCP server and Secure Tunnel client.")
-        return self.up()
+        return 0
 
     def uninstall_launchd(self) -> int:
         for label in (LAUNCH_AGENT_SERVER_LABEL, LAUNCH_AGENT_TUNNEL_LABEL):
@@ -357,8 +408,7 @@ class RuntimeController:
         health_url = tunnel_health_url(self.paths.tunnel_config)
         if health_url is None:
             return Check("tunnel", False, "tunnel health URL is not configured on loopback")
-        payload = _safe_url_json(f"{health_url}/readyz")
-        ready = payload is not None and payload.get("status") in {"ready", "ok"}
+        ready = _http_endpoint_is_ok(f"{health_url}/readyz")
         return Check("tunnel", ready, "tunnel /readyz responds" if ready else "tunnel /readyz is not ready")
 
     def _launchd_check(self, label: str) -> Check:
@@ -369,15 +419,17 @@ class RuntimeController:
     def _tunnel_config_check(self) -> Check:
         if not self._config_check().ok:
             return Check("tunnel-config-validation", False, "tunnel configuration cannot be validated")
-        secret = self._keychain_reader(self.paths.keychain_service)
+        if self._tunnel_check().ok:
+            return Check("tunnel-config-validation", True, "active tunnel client confirms the configured local health endpoint")
+        secret = self._credential_reader(self.paths.keychain_service)
         if secret is None:
             return Check(
                 "tunnel-config-validation",
                 False,
-                "macOS Keychain does not contain the Secure Tunnel runtime credential",
+                "the existing Secure Tunnel runtime credential is unavailable in the user launchd environment or configured Keychain item",
             )
         environment = os.environ.copy()
-        environment["CONTROL_PLANE_API_KEY"] = secret
+        environment[CONTROL_PLANE_API_KEY_ENV] = secret
         result = subprocess.run(
             [str(self.paths.tunnel_client), "doctor", "--config", str(self.paths.tunnel_config)],
             check=False,
@@ -432,12 +484,18 @@ class RuntimeController:
     def _bootout_if_loaded(self, path: Path) -> None:
         self._run_launchctl("bootout", f"gui/{os.getuid()}", str(path), allow_failure=True)
 
+    def _remove_launch_agent(self, label: str, path: Path) -> None:
+        self._run_launchctl("bootout", f"gui/{os.getuid()}/{label}", allow_failure=True)
+        if path.exists():
+            path.unlink()
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Operate the private AI Challenge MCP runtime")
     parser.add_argument("--project-dir")
     parser.add_argument("--tunnel-config")
     parser.add_argument("--tunnel-client")
+    parser.add_argument("--keychain-service")
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument(
         "command",
@@ -452,6 +510,7 @@ def main() -> None:
         project_dir=args.project_dir,
         tunnel_config=args.tunnel_config,
         tunnel_client=args.tunnel_client,
+        keychain_service=args.keychain_service,
     )
     controller = RuntimeController(paths)
     handlers: dict[str, Callable[[], int]] = {
