@@ -74,6 +74,47 @@ python -m compileall src
 
 로컬 서버와 tunnel-client는 모두 실행 중이어야 ChatGPT가 도구를 검색·호출할 수 있습니다. Codex 세션이 종료되면 이 로컬 프로세스와 임시 터널도 종료될 수 있습니다.
 
+### 개인용 연결 자동 복구
+
+`aichallenge-mcp-runtime`는 개인용 Secure MCP Tunnel 환경을 진단하고
+로컬 서버·터널을 재기동합니다. 이 명령은 비밀값을 출력하거나 파일에 저장하지
+않습니다.
+
+```bash
+source .venv/bin/activate
+aichallenge-mcp-runtime doctor
+aichallenge-mcp-runtime up
+```
+
+Mac 로그인 후에도 자동으로 복구하려면, OpenAI Secure Tunnel의 **runtime
+control-plane credential**을 macOS Keychain에 운영자가 먼저 등록해야 합니다.
+이것은 대회 수집용 Kaggle 키나 모델 API 키와 다른, tunnel-client가 OpenAI
+control plane에 연결할 때만 쓰는 런타임 자격증명입니다. 등록한 뒤 다음 명령을
+한 번 실행합니다.
+
+Keychain 항목은 서비스 이름 `aichallenge-mcp.tunnel-control-plane`, 계정은 현재
+macOS 사용자명으로 등록합니다. 자격증명 값은 Keychain에만 입력하고, 터미널,
+`.env`, 저장소, ChatGPT 대화에는 넣지 않습니다.
+
+```bash
+aichallenge-mcp-runtime install-launchd
+```
+
+설치되면 두 개의 user LaunchAgent가 로그인 시 시작되고, 서버 또는
+`tunnel-client`가 비정상 종료되면 재시작합니다. `doctor`는 로컬 `/readyz`,
+tunnel-client의 loopback `/readyz`, Keychain 자격증명 유무, 설정 권한, 그리고
+LaunchAgent 상태를 확인합니다. 연결이 실패해도 ChatGPT가 로컬 프로세스를 직접
+복구할 수는 없으므로, 이 Mac 측 감시자가 복구를 담당합니다.
+
+이미 8000 포트를 쓰는 이전 서버가 새 `/readyz` 점검에 응답하지 않으면 복구기는
+중복 실행하지 않고 안전하게 중단합니다. 그 경우 이전 로컬 서버를 종료한 뒤
+`aichallenge-mcp-runtime up`을 다시 실행합니다.
+
+```bash
+aichallenge-mcp-runtime status
+aichallenge-mcp-runtime uninstall-launchd
+```
+
 ## 공개 배포와 마켓플레이스
 
 Secure MCP Tunnel은 로컬 개발·스테이징 연결용입니다. 공개 Plugins Directory 제출에는 터널 대신 운영자가 관리하는 고정 공개 HTTPS MCP URL이 필요합니다. 이 서버는 무상태 Streamable HTTP 서비스이므로 관리형 컨테이너 호스팅 또는 TLS reverse proxy 뒤의 컨테이너로 배포할 수 있습니다.

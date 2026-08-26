@@ -1,2 +1,3 @@
 [console_scripts]
 aichallenge-mcp = aichallenge_mcp.server:main
+aichallenge-mcp-runtime = aichallenge_mcp.runtime:main
