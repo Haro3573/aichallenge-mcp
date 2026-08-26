@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 src/aichallenge_mcp/__init__.py
+src/aichallenge_mcp/briefing_document.py
 src/aichallenge_mcp/cli.py
 src/aichallenge_mcp/models.py
 src/aichallenge_mcp/orchestrator.py
@@ -21,6 +22,7 @@ src/aichallenge_mcp/sources/registry.py
 src/aichallenge_mcp/sources/result.py
 tests/test_aichallenge4all_fixture.py
 tests/test_aichallenge4all_source.py
+tests/test_briefing_document.py
 tests/test_chatgpt_surface.py
 tests/test_dacon_source.py
 tests/test_devpost_source.py

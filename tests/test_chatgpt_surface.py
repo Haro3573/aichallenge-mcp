@@ -72,6 +72,71 @@ def test_mcp_v2_serves_native_modern_discovery():
     assert result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "AI Challenge Briefing"
 
 
+def test_public_asgi_surface_exposes_liveness_readiness_and_mcp_discovery(monkeypatch):
+    from aichallenge_mcp import server
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("MCP_ALLOWED_HOSTS", "testserver")
+    app = server.create_app()
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "discover-public-1",
+        "method": "server/discover",
+        "params": {
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
+            }
+        },
+    }
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": "2026-07-28",
+        "MCP-Method": "server/discover",
+    }
+
+    with TestClient(app) as client:
+        assert client.get("/healthz").json() == {"status": "ok", "service": "aichallenge-mcp"}
+        assert client.get("/readyz").json()["status"] == "ready"
+        response = client.post("/mcp", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["result"]["resultType"] == "complete"
+
+
+def test_production_readiness_reports_configuration_gaps_without_secret_values(monkeypatch):
+    from aichallenge_mcp import server
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("MCP_PRODUCTION", "true")
+    monkeypatch.setenv("REQUIRE_KAGGLE_CREDENTIALS", "true")
+    monkeypatch.delenv("MCP_ALLOWED_HOSTS", raising=False)
+    monkeypatch.delenv("KAGGLE_API_TOKEN", raising=False)
+    monkeypatch.delenv("KAGGLE_USERNAME", raising=False)
+    monkeypatch.delenv("KAGGLE_KEY", raising=False)
+
+    with TestClient(server.create_app()) as client:
+        response = client.get("/readyz")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "failures": [
+            "MCP_ALLOWED_HOSTS must include the public MCP hostname in production",
+            "Kaggle runtime credentials are required but not configured",
+        ],
+    }
+
+
+def test_managed_host_port_takes_precedence_over_local_mcp_port(monkeypatch):
+    from aichallenge_mcp import server
+
+    monkeypatch.setenv("MCP_PORT", "8000")
+    monkeypatch.setenv("PORT", "9000")
+
+    assert server.listening_port() == 9000
+
+
 def test_chatgpt_skill_calls_only_the_collection_orchestrator():
     skill = (Path(__file__).parents[1] / "chatgpt-skills" / "ai-contest-briefing" / "SKILL.md").read_text()
 

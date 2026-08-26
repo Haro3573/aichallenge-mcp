@@ -13,6 +13,8 @@ dependencies = [
   "kagglesdk>=0.1.37,<1",
   "socksio>=1.0.0",
   "mcp>=2.0.0,<3",
+  "starlette>=0.27.0,<2",
+  "uvicorn>=0.30.0,<1",
 ]
 
 [project.scripts]

@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import json
 import os
 from typing import Any
 
+import uvicorn
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
 
 from .briefing_document import compact_summary, normalized_collection
 from .orchestrator import CollectionOrchestrator
 from .sources.aichallenge4all import Aichallenge4allSourceAdapter
 from .sources.dacon import DaconSourceAdapter
 from .sources.devpost import DevpostSourceAdapter
-from .sources.kaggle import KaggleSourceAdapter
+from .sources.kaggle import KaggleSourceAdapter, resolve_credentials
 from .sources.registry import SourceRegistration, SourceRegistry
 
 
@@ -67,6 +72,85 @@ source_registry = SourceRegistry(
     )
 )
 orchestrator = CollectionOrchestrator(source_registry)
+
+
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    """Read an explicitly configured boolean without accepting ambiguous values."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def allowed_hosts() -> list[str]:
+    """Return local hosts plus the operator-declared public MCP host names."""
+    return [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "localhost",
+        "localhost:*",
+        "[::1]",
+        "[::1]:*",
+    ] + [
+        host.strip()
+        for host in os.getenv("MCP_ALLOWED_HOSTS", "").split(",")
+        if host.strip()
+    ]
+
+
+def listening_port() -> int:
+    """Use the managed-hosting PORT contract while retaining local MCP_PORT support."""
+    return int(os.getenv("PORT", os.getenv("MCP_PORT", "8000")))
+
+
+def readiness_failures() -> list[str]:
+    """Return deployment configuration failures without exposing any secret value."""
+    failures: list[str] = []
+    if _env_flag("MCP_PRODUCTION") and not os.getenv("MCP_ALLOWED_HOSTS", "").strip():
+        failures.append("MCP_ALLOWED_HOSTS must include the public MCP hostname in production")
+    if _env_flag("REQUIRE_KAGGLE_CREDENTIALS") and resolve_credentials() is None:
+        failures.append("Kaggle runtime credentials are required but not configured")
+    return failures
+
+
+async def healthz(_: Any) -> JSONResponse:
+    """Liveness probe: this process can serve HTTP requests."""
+    return JSONResponse({"status": "ok", "service": "aichallenge-mcp"})
+
+
+async def readyz(_: Any) -> JSONResponse:
+    """Readiness probe: deployment-critical configuration is present."""
+    failures = readiness_failures()
+    status_code = 200 if not failures else 503
+    return JSONResponse(
+        {"status": "ready" if not failures else "not_ready", "failures": failures},
+        status_code=status_code,
+    )
+
+
+def create_app() -> Starlette:
+    """Create the public ASGI surface for a stateless, horizontally scalable MCP server."""
+    mcp_app = mcp.streamable_http_app(
+        host=os.getenv("MCP_HOST", "0.0.0.0"),
+        stateless_http=_env_flag("MCP_STATELESS_HTTP", default=True),
+        transport_security=TransportSecuritySettings(allowed_hosts=allowed_hosts()),
+    )
+
+    @asynccontextmanager
+    async def lifespan(_: Starlette):
+        # Mounted Starlette applications do not run their own lifespan. The MCP
+        # transport needs it to initialize its request task group.
+        async with mcp_app.router.lifespan_context(mcp_app):
+            yield
+
+    return Starlette(
+        routes=[
+            Route("/healthz", healthz, methods=["GET"]),
+            Route("/readyz", readyz, methods=["GET"]),
+            Mount("/", app=mcp_app),
+        ],
+        lifespan=lifespan,
+    )
 
 def json_text(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
@@ -194,27 +278,11 @@ async def collect_all_sources() -> CallToolResult:
 
 
 def main() -> None:
-    # MCP SDK protects localhost servers from DNS rebinding by validating Host.
-    # A reverse proxy or HTTPS tunnel has a different public Host header, so an
-    # operator may explicitly allow any additional hostname at runtime. The
-    # loopback forms are needed by the local Secure MCP Tunnel target.
-    allowed_hosts = [
-        "127.0.0.1",
-        "127.0.0.1:*",
-        "localhost",
-        "localhost:*",
-        "[::1]",
-        "[::1]:*",
-    ] + [
-        host.strip()
-        for host in os.getenv("MCP_ALLOWED_HOSTS", "").split(",")
-        if host.strip()
-    ]
-    mcp.run(
-        transport="streamable-http",
+    uvicorn.run(
+        create_app(),
         host=os.getenv("MCP_HOST", "0.0.0.0"),
-        port=int(os.getenv("MCP_PORT", "8000")),
-        transport_security=TransportSecuritySettings(allowed_hosts=allowed_hosts),
+        port=listening_port(),
+        log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )
 
 

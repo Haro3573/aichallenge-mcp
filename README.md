@@ -44,6 +44,11 @@ export KAGGLE_KEY='...'
 서버는 기본적으로 `http://127.0.0.1:8000/mcp`에서 Streamable HTTP MCP를 제공합니다.
 의존성은 MCP Python SDK 2.x(`mcp>=2.0.0,<3`)이며 최신 Discovery 프로토콜을 네이티브로 지원합니다.
 
+운영 상태는 다음 엔드포인트로 점검합니다.
+
+- `GET /healthz`: 프로세스 liveness
+- `GET /readyz`: production host 설정과 필수 source 자격증명 readiness
+
 공개 HTTPS reverse proxy 또는 터널을 쓰면, MCP SDK Host 검증에 해당 공개 호스트를 명시합니다.
 
 ```bash
@@ -68,6 +73,24 @@ python -m compileall src
 6. `@AI 대회 브리핑`을 선택하면 Skill이 `collect_all_sources`를 호출한다.
 
 로컬 서버와 tunnel-client는 모두 실행 중이어야 ChatGPT가 도구를 검색·호출할 수 있습니다. Codex 세션이 종료되면 이 로컬 프로세스와 임시 터널도 종료될 수 있습니다.
+
+## 공개 배포와 마켓플레이스
+
+Secure MCP Tunnel은 로컬 개발·스테이징 연결용입니다. 공개 Plugins Directory 제출에는 터널 대신 운영자가 관리하는 고정 공개 HTTPS MCP URL이 필요합니다. 이 서버는 무상태 Streamable HTTP 서비스이므로 관리형 컨테이너 호스팅 또는 TLS reverse proxy 뒤의 컨테이너로 배포할 수 있습니다.
+
+```text
+ChatGPT Plugin → https://mcp.example.com/mcp → managed container → registered public sources
+```
+
+운영 구성, health checks, TLS proxy 예시, 비밀값 처리 원칙은 [deploy/README.md](deploy/README.md)에 있습니다. Docker 배포의 출발점은 `Dockerfile`, self-hosted 참고 구성은 `docker-compose.production.yml`입니다.
+
+공개 환경에서는 다음을 지킵니다.
+
+1. `MCP_ALLOWED_HOSTS`에 실제 공개 MCP 호스트만 설정한다.
+2. Kaggle 서비스 자격증명은 호스팅 제공자의 secret manager에서만 주입한다.
+3. `/mcp`의 Streamable HTTP 응답을 proxy나 CDN이 버퍼링하지 않게 한다.
+4. edge rate limiting, 로그·알림, readiness check를 활성화한다.
+5. 최종 공개 URL에서 도구 스캔과 ChatGPT 호출을 검증한 뒤 마켓플레이스 제출을 진행한다.
 
 ## Source 추가
 

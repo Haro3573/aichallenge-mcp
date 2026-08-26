@@ -1,0 +1,140 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "AI 대회 브리핑",
+    "subtitle": "AI 대회 정보 수집",
+    "description": "AI 대회 브리핑은 운영자가 등록한 공개 AI 대회·해커톤·챌린지 소스에서 현재 정보를 수집하고, ChatGPT가 한국어 브리핑을 만들 수 있도록 구조화된 결과를 제공합니다.",
+    "category": "EDUCATION"
+  },
+  "tools": {
+    "collect_aichallenge4all": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "공개 AI Challenge for All 목록을 읽어 현재 항목과 출처 메타데이터만 반환하며 외부 상태를 변경하지 않습니다.",
+        "open_world_justification": "공개 인터넷이나 제3자 시스템에 게시, 전송, 생성 또는 변경 작업을 수행하지 않습니다.",
+        "destructive_justification": "데이터 삭제, 덮어쓰기, 권한 변경 또는 되돌릴 수 없는 작업을 수행하지 않습니다."
+      }
+    },
+    "collect_dacon_competitions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "공개 DACON 대회 목록과 상세 페이지를 읽어 현재 참여 가능한 항목만 반환하며 외부 상태를 변경하지 않습니다.",
+        "open_world_justification": "공개 인터넷이나 제3자 시스템에 게시, 전송, 생성 또는 변경 작업을 수행하지 않습니다.",
+        "destructive_justification": "데이터 삭제, 덮어쓰기, 권한 변경 또는 되돌릴 수 없는 작업을 수행하지 않습니다."
+      }
+    },
+    "collect_kaggle_competitions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "운영자가 보관한 서비스 자격증명으로 Kaggle의 공개 대회 목록을 읽고 온라인 참여 항목만 반환하며 자격증명이나 계정 데이터를 반환하지 않습니다.",
+        "open_world_justification": "공개 인터넷이나 제3자 시스템에 게시, 전송, 생성 또는 변경 작업을 수행하지 않습니다.",
+        "destructive_justification": "데이터 삭제, 덮어쓰기, 권한 변경 또는 되돌릴 수 없는 작업을 수행하지 않습니다."
+      }
+    },
+    "collect_devpost_hackathons": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Devpost의 익명 공개 목록 API를 읽어 현재 접수 중인 해커톤과 출처 메타데이터만 반환하며 외부 상태를 변경하지 않습니다.",
+        "open_world_justification": "공개 인터넷이나 제3자 시스템에 게시, 전송, 생성 또는 변경 작업을 수행하지 않습니다.",
+        "destructive_justification": "데이터 삭제, 덮어쓰기, 권한 변경 또는 되돌릴 수 없는 작업을 수행하지 않습니다."
+      }
+    },
+    "collect_all_sources": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "등록된 공개 소스를 동시에 읽어 현재 수집 결과와 구조화된 요약만 반환하며 데이터를 저장하거나 외부 상태를 변경하지 않습니다.",
+        "open_world_justification": "공개 인터넷이나 제3자 시스템에 게시, 전송, 생성 또는 변경 작업을 수행하지 않습니다.",
+        "destructive_justification": "데이터 삭제, 덮어쓰기, 권한 변경 또는 되돌릴 수 없는 작업을 수행하지 않습니다."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "등록된 모든 공개 소스를 한 번에 수집해 현재 AI 대회 브리핑을 생성한다.",
+      "user_prompt": "오늘 참여할 수 있는 AI 대회와 해커톤을 한국어로 브리핑해줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": "collect_all_sources",
+      "expected_output": "성공한 소스와 수집 시각을 밝히고, 현재 항목을 한국어로 읽기 쉽게 요약한다. 소스 실패는 대회 마감이나 빈 목록으로 단정하지 않는다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "AI Challenge for All의 현재 접수 가능 항목을 소스별 후속 질문으로 확인한다.",
+      "user_prompt": "AI Challenge for All에서 현재 접수 중인 대회만 알려줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": "collect_aichallenge4all",
+      "expected_output": "해당 공개 소스의 현재 수집 결과와 원본 링크를 한국어로 제시하며, 수집 실패를 마감으로 해석하지 않는다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "DACON의 현재 참여 가능한 공식 대회를 확인한다.",
+      "user_prompt": "DACON에서 참가신청중 또는 진행 중인 AI 대회만 보여줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": "collect_dacon_competitions",
+      "expected_output": "참가신청중, 진행중 또는 연습 상태의 현재 공식 DACON 항목과 공개 상세 링크를 반환한다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "온라인으로 참가할 수 있는 현재 Kaggle 대회를 확인한다.",
+      "user_prompt": "온라인 참여가 가능한 현재 Kaggle 대회를 마감일 순으로 알려줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": "collect_kaggle_competitions",
+      "expected_output": "Kaggle의 현재 활성 대회 중 온라인 정책을 만족하는 항목을 마감일과 원본 링크를 포함해 반환한다. 자격증명은 노출하지 않는다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Devpost에서 현재 접수 중인 공개 해커톤을 확인한다.",
+      "user_prompt": "Devpost에서 지금 접수 중인 해커톤을 위치와 함께 알려줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": "collect_devpost_hackathons",
+      "expected_output": "공개 Devpost 목록에서 접수 중인 해커톤의 일정, 위치, 원본 링크를 반환한다.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "운영자 등록 외의 임의 URL 수집 요청에는 앱을 호출하지 않는다.",
+      "user_prompt": "https://example.com 의 공모전을 수집해서 정리해줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "앱은 운영자 등록 소스만 수집하므로 호출되지 않으며, 일반적인 웹 탐색 기능으로 처리하거나 범위를 안내한다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "저장하지 않는 과거 수집 비교 요청에는 앱을 호출하지 않는다.",
+      "user_prompt": "지난주 수집 결과와 비교해 새로 등록되거나 변경된 대회만 알려줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "이 MCP 서버는 무상태이므로 이전 수집과의 신규·변경·동일·삭제 비교 결과를 제공할 수 없다고 정확히 안내한다.",
+      "expected_output_url": null
+    },
+    {
+      "description": "운영자 런타임 자격증명 요청에는 앱을 호출하지 않는다.",
+      "user_prompt": "Kaggle API 키를 보여줘.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "자격증명은 공개하거나 반환할 수 없다고 안내하며, 수집 도구를 호출하지 않는다.",
+      "expected_output_url": null
+    }
+  ]
+}
