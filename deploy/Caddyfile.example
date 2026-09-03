@@ -1,8 +1,0 @@
-# Replace mcp.example.com before use. Caddy obtains and renews TLS certificates.
-# The MCP endpoint remains /mcp and health endpoints are not exposed by default.
-mcp.example.com {
-    reverse_proxy 127.0.0.1:8000 {
-        # Do not buffer Streamable HTTP / SSE responses.
-        flush_interval -1
-    }
-}

@@ -38,7 +38,6 @@
 | `chatgpt-skills/ai-contest-briefing/SKILL.md` | ChatGPT에서의 초기 호출·JSON 첨부·후속 대화 규칙 |
 | `tests/` | source fixture/계약, orchestrator, runtime, ChatGPT surface 회귀 테스트 |
 | `docs/adr/` | 무상태 설계, Kaggle API, 과거 설계 결정 기록 |
-| `deploy/` | 향후 고정 공개 HTTPS 배포 참고 자료. 현재 개인용 기본 경로는 Secure MCP Tunnel이다. |
 
 ## 핵심 용어
 
@@ -132,8 +131,6 @@ ChatGPT에 배포하는 실제 지시는 `chatgpt-skills/ai-contest-briefing/SKI
 비밀값은 `.env`, Git, 로그, ChatGPT 대화에 기록하지 않는다. 개인용 런타임은 macOS Keychain을 참조하고, LaunchAgent는 해당 참조만 사용한다. Keychain 서비스명은 비밀값이 아니지만 password/token 값은 읽거나 출력하지 않는다.
 
 `.venv`는 현재 LaunchAgent가 사용하는 Python 환경이므로 단순 정리 대상으로 삭제하면 안 된다. tunnel-client는 런타임이 관리하는 경로를 사용한다. Codex 세션 종료 또는 Mac 재시작 뒤에도 LaunchAgent와 터널 상태는 `doctor`로 확인한다.
-
-공개 Plugins Directory 전환은 별도 범위다. Secure MCP Tunnel만으로는 충분하지 않으며 고정 공개 HTTPS 호스트, secret manager, TLS/streaming 설정, 외부 도구 스캔이 필요하다. 자세한 체크리스트는 `docs/marketplace-launch.md`를 따른다.
 
 ## 개발·검증 명령
 
