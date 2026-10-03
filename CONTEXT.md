@@ -1,10 +1,10 @@
 # aichallenge-mcp 프로젝트 컨텍스트
 
-이 문서는 이 저장소를 처음 맡은 에이전트·운영자를 위한 현재 기준 문서다. 구현·테스트·ChatGPT Skill의 동작이 충돌할 때는 **코드와 테스트를 우선**하고, 이 문서를 함께 갱신한다.
+이 문서는 이 저장소를 처음 맡은 에이전트·운영자를 위한 현재 기준 문서다. 구현·테스트·Codex Skill의 동작이 충돌할 때는 **코드와 테스트를 우선**하고, 이 문서를 함께 갱신한다.
 
 ## 한 줄 정의
 
-`aichallenge-mcp`는 운영자가 코드로 등록한 공개 AI 대회·해커톤·챌린지 source를 매 호출마다 수집해 ChatGPT에 구조화된 현재 데이터를 제공하는, **무상태 Streamable HTTP MCP 서버**다.
+`aichallenge-briefing-stdio`는 운영자가 코드로 등록한 공개 AI 대회·해커톤·챌린지 source를 매 호출마다 수집해 이 Mac의 Codex에 구조화된 현재 데이터를 제공하는, **무상태 stdio MCP 플러그인**이다.
 
 사용자는 URL을 주지 않는다. 범용 웹 스크레이퍼도, 대회 일정관리 서비스도, 변화 추적 데이터베이스도 아니다.
 
@@ -14,8 +14,8 @@
 
 - 운영자가 등록한 고정 source의 공개 정보를 수집한다.
 - 전체 source를 병렬 수집하고, source별 성공·실패·경고를 분리해 반환한다.
-- ChatGPT가 읽을 수 있는 손실 없는 정규화 결과와 간결한 수집 요약을 제공한다.
-- 나머지 대화, 참가 적합성 인터뷰, 브리핑·리포트 작성은 ChatGPT Skill이 담당한다.
+- Codex가 읽을 수 있는 손실 없는 정규화 결과와 간결한 수집 요약을 제공한다.
+- 나머지 대화, 참가 적합성 인터뷰, 브리핑·리포트 작성은 Codex Skill이 담당한다.
 
 ### 하지 않는 일
 
@@ -30,13 +30,13 @@
 
 | 경로 | 책임 |
 | --- | --- |
-| `src/aichallenge_mcp/server.py` | MCP 도구, `/healthz`, `/readyz`, Streamable HTTP 앱, source registry |
+| `src/aichallenge_mcp/server.py` | MCP 도구와 source registry. HTTP helper는 원본과의 비교를 위한 레거시 참조물 |
+| `src/aichallenge_mcp/stdio.py` | Codex의 표준입력·표준출력 전송, 선택적 Kaggle Keychain token 주입 |
 | `src/aichallenge_mcp/orchestrator.py` | 모든 등록 source의 병렬 실행, timeout·재시도·부분 실패 격리 |
 | `src/aichallenge_mcp/sources/` | source별 adapter, 공개 접근 정책, 정규화, registry/result 계약 |
 | `src/aichallenge_mcp/briefing_document.py` | `raw` 제거, 요약 생성, 손실 없는 columnar 변환·복원 |
-| `src/aichallenge_mcp/runtime.py` | 로컬 서버·Secure MCP Tunnel·LaunchAgent·Keychain 참조의 안전한 운영 |
-| `chatgpt-skills/ai-contest-briefing/SKILL.md` | ChatGPT에서의 초기 호출·JSON 첨부·후속 대화 규칙 |
-| `tests/` | source fixture/계약, orchestrator, runtime, ChatGPT surface 회귀 테스트 |
+| `skills/ai-challenge-briefing/SKILL.md` | Codex에서의 초기 호출·후속 대화 규칙 |
+| `tests/` | source fixture/계약, orchestrator, stdio, 레거시 참조 surface 회귀 테스트 |
 | `docs/adr/` | 무상태 설계, Kaggle API, 과거 설계 결정 기록 |
 
 ## 핵심 용어
@@ -64,7 +64,7 @@ Kaggle은 `KAGGLE_API_TOKEN` 또는 `KAGGLE_USERNAME`과 `KAGGLE_KEY` 쌍을 런
 ## MCP 계약과 데이터 흐름
 
 ```text
-@AI 대회 브리핑 Skill
+Codex AI 대회 브리핑 Skill
         │
         ▼
 collect_all_sources
@@ -92,17 +92,17 @@ source별 정규화 결과 ──► compact summary (대화용)
 
 source 결과는 공통적으로 source 정체성, source URL, 수집 시각, `success`, `items`, `source_pages`, `warnings`, `error`, `attempts`를 가진다. 성공 결과가 required-field/shape 계약을 위반하거나 유효 항목이 0건이면 성공으로 처리하지 않는다.
 
-## ChatGPT Skill 동작
+## Codex Skill 동작
 
-ChatGPT에 배포하는 실제 지시는 `chatgpt-skills/ai-contest-briefing/SKILL.md`가 기준이다. 이를 수정하면 두 ZIP을 갱신하고 ChatGPT Skill도 업데이트해야 한다.
+Codex에 배포하는 실제 지시는 `skills/ai-challenge-briefing/SKILL.md`가 기준이다. 이 플러그인은 Codex가 로컬 Python 프로세스로 실행하며 Secure Tunnel이나 ChatGPT 연결을 사용하지 않는다.
 
-초기 `@AI 대회 브리핑` 실행은 다음을 반드시 수행한다.
+초기 AI 대회 브리핑 요청은 다음을 수행한다.
 
 1. 앱의 `collect_all_sources`를 인자 없이 호출한다.
 2. columnar collection을 해석해 최대 10개 기회만 포함한 간결한 한국어 브리핑을 쓴다.
-3. 같은 응답에 전체 `structuredContent.collection`과 **완전히 동일한** UTF-8 JSON을 `ai-contest-data-YYYY-MM-DD.json`으로 첨부한다.
+3. 사용자가 전체 데이터 또는 파일을 요청할 때만 `structuredContent.collection`을 JSON으로 제공한다.
 
-그 뒤의 대화는 일반 ChatGPT 후속 대화다. 현재 대화의 수집 결과와 JSON을 재사용하고, 사용자가 명시적으로 새로고침/재수집을 요청하기 전에는 다시 수집하거나 JSON을 재생성하지 않는다. 참가 대회 추천 또는 인터뷰 요청이면 도구 호출 없이 목표·기술/역할·시간/팀/온라인 제약의 세 질문으로 한국어 인터뷰를 시작한다. 답변은 항상 가시적인 한국어 문장으로 끝나야 하며, 단지 작업 시간 표시만 남겨서는 안 된다.
+그 뒤의 대화는 일반 Codex 후속 대화다. 현재 대화의 수집 결과를 재사용하고, 사용자가 명시적으로 새로고침/재수집을 요청하기 전에는 다시 수집하지 않는다. 참가 대회 추천 또는 인터뷰 요청이면 도구 호출 없이 목표·기술/역할·시간/팀/온라인 제약의 세 질문으로 한국어 인터뷰를 시작한다. 답변은 항상 가시적인 한국어 문장으로 끝나야 하며, 단지 작업 시간 표시만 남겨서는 안 된다.
 
 완전한 읽기용 Markdown 리포트는 사용자가 명시적으로 전체 리포트/모든 대회를 요청할 때만 만든다. 서버가 문서를 만들지는 않는다.
 
@@ -121,16 +121,13 @@ ChatGPT에 배포하는 실제 지시는 `chatgpt-skills/ai-contest-briefing/SKI
 
 ## 로컬 운영과 비밀값
 
-- 기본 MCP 주소: `http://127.0.0.1:8000/mcp`
-- `GET /healthz`: 프로세스 liveness
-- `GET /readyz`: production host와 선택적 Kaggle 자격증명 readiness
-- 현재 개인용 연결: 로컬 서버 + OpenAI Secure MCP Tunnel + ChatGPT의 Tunnel/No Auth 앱 연결
-- `aichallenge-mcp-runtime doctor`: 서버·터널·설정·LaunchAgent 상태 확인
-- `aichallenge-mcp-runtime up`: 로컬 서버와 터널을 재기동
+- Codex의 `.mcp.json`은 plugin root를 working directory로 삼아 `uv run --locked --no-dev aichallenge-mcp-stdio`를 실행한다.
+- 이 실행 경로에는 HTTP 포트, `/healthz`, `/readyz`, Secure MCP Tunnel, LaunchAgent가 없다.
+- Kaggle이 필요할 때만 `.mcp.json`의 Keychain 서비스명을 통해 `KAGGLE_API_TOKEN`을 실행 프로세스 메모리에 설정한다.
 
-비밀값은 `.env`, Git, 로그, ChatGPT 대화에 기록하지 않는다. 개인용 런타임은 macOS Keychain을 참조하고, LaunchAgent는 해당 참조만 사용한다. Keychain 서비스명은 비밀값이 아니지만 password/token 값은 읽거나 출력하지 않는다.
+비밀값은 `.env`, Git, 로그, Codex 대화에 기록하지 않는다. stdio 진입점은 필요할 때만 macOS Keychain을 참조한다. Keychain 서비스명은 비밀값이 아니지만 password/token 값은 읽거나 출력하지 않는다.
 
-`.venv`는 현재 LaunchAgent가 사용하는 Python 환경이므로 단순 정리 대상으로 삭제하면 안 된다. tunnel-client는 런타임이 관리하는 경로를 사용한다. Codex 세션 종료 또는 Mac 재시작 뒤에도 LaunchAgent와 터널 상태는 `doctor`로 확인한다.
+`uv`는 plugin root의 `uv.lock`으로 Python 환경을 재현한다. 의존성 변경에는 lockfile 갱신과 플러그인 재설치가 필요하다.
 
 ## 개발·검증 명령
 
@@ -139,15 +136,6 @@ source .venv/bin/activate
 pytest
 python -m compileall src
 python -m aichallenge_mcp.cli
-aichallenge-mcp-runtime doctor
-```
-
-ChatGPT Skill을 변경했을 때는 ZIP을 다시 만든 뒤 ChatGPT의 설치된 Skill을 업데이트한다.
-
-```bash
-cd chatgpt-skills
-zip -q -r -FS ai-contest-briefing-chatgpt.skill.zip ai-contest-briefing
-zip -q -r -FS ai-contest-briefing.skill.zip ai-contest-briefing
 ```
 
 ## 변경 시 지켜야 할 불변 조건
@@ -157,4 +145,4 @@ zip -q -r -FS ai-contest-briefing.skill.zip ai-contest-briefing
 - source 하나가 실패해도 다른 source의 성공 데이터를 버리지 않는다.
 - source 실패를 마감·삭제·0건으로 해석하지 않는다.
 - 공개 결과에서 자격증명, 세션 값, 사용자 개인화 필드, parser `raw` payload를 제외한다.
-- collection의 columnar format과 ChatGPT Skill의 초기 JSON 첨부 계약을 바꿀 때는 서버·Skill·테스트·README·이 문서를 한 변경에서 함께 갱신한다.
+- collection의 columnar format과 Codex Skill의 브리핑 계약을 바꿀 때는 서버·Skill·테스트·README·이 문서를 한 변경에서 함께 갱신한다.

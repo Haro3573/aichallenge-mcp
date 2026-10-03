@@ -1,0 +1,26 @@
+{
+  "name": "aichallenge-briefing-stdio",
+  "version": "0.1.0+codex.20261003003837",
+  "description": "Collect current AI competition data in Codex through a local stdio MCP without a Secure Tunnel.",
+  "author": {
+    "name": "Sehyeok Park"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AI \ub300\ud68c \ube0c\ub9ac\ud551 (\ub85c\uceec)",
+    "shortDescription": "Codex\uc5d0\uc11c \ucd5c\uc2e0 AI \ub300\ud68c \uc815\ubcf4\ub97c \ub85c\uceec \uc218\uc9d1\ud569\ub2c8\ub2e4.",
+    "longDescription": "Codex\uac00 \ub85c\uceec\uc5d0\uc11c \uc9c1\uc811 \uc2e4\ud589\ud558\ub294 stdio MCP\uc785\ub2c8\ub2e4. Secure Tunnel, HTTP \ud3ec\ud2b8, LaunchAgent \uc5c6\uc774 \uc6b4\uc601\uc790 \ub4f1\ub85d \uacf5\uac1c source\uc758 \ucd5c\uc2e0 AI \ub300\ud68c\u00b7\ud574\ucee4\ud1a4 \uc815\ubcf4\ub97c \uc218\uc9d1\ud569\ub2c8\ub2e4.",
+    "developerName": "Sehyeok Park",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Local execution"
+    ],
+    "defaultPrompt": [
+      "\ud604\uc7ac AI \ub300\ud68c\uc640 \ud574\ucee4\ud1a4\uc744 \ud55c\uad6d\uc5b4\ub85c \uc9e7\uac8c \ube0c\ub9ac\ud551\ud574\uc918.",
+      "\ub4f1\ub85d\ub41c \ubaa8\ub4e0 AI \ub300\ud68c source\ub97c \uc0c8\ub85c \uc218\uc9d1\ud574\uc918.",
+      "Kaggle\uc744 \ud3ec\ud568\ud55c \ud604\uc7ac AI \ub300\ud68c \uc815\ubcf4\ub97c \ubcf4\uc5ec\uc918."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

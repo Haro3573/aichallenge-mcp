@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "ai_challenge_briefing": {
+      "cwd": ".",
+      "command": "uv",
+      "args": [
+        "run",
+        "--locked",
+        "--no-dev",
+        "aichallenge-mcp-stdio"
+      ],
+      "env": {
+        "AICHALLENGE_MCP_KAGGLE_KEYCHAIN_SERVICE": "aichallenge-mcp-kaggle"
+      },
+      "enabled": true
+    }
+  }
+}
