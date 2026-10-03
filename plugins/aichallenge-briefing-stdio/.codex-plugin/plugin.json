@@ -1,6 +1,6 @@
 {
   "name": "aichallenge-briefing-stdio",
-  "version": "0.1.0+codex.20261003003837",
+  "version": "0.1.0+codex.20261003005425",
   "description": "Collect current AI competition data in Codex through a local stdio MCP without a Secure Tunnel.",
   "author": {
     "name": "Sehyeok Park"

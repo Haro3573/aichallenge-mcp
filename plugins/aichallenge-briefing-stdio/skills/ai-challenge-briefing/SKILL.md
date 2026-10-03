@@ -19,6 +19,25 @@ collects only its operator-registered public sources.
 4. For a later source-specific request, call only that source's
    `collect_<source_id>` tool.
 
+## Optional Kaggle setup
+
+If a Kaggle tool result says that `KAGGLE_API_TOKEN` (or legacy Kaggle
+credentials) is not configured:
+
+1. Explain that only the Kaggle source is unavailable; the other public
+   sources can still be collected.
+2. Ask whether the user wants to enable Kaggle on this Mac.
+3. If they do, tell them to create a **Generic Password** in macOS Keychain
+   Access with service name `aichallenge-mcp-kaggle`, any local account label,
+   and their Kaggle API token as the password. Refer them to the repository
+   README for the same steps.
+4. Never ask the user to paste, reveal, display, write, or verify the token in
+   chat, a command, a file, an environment variable, or an MCP call.
+
+The configured Keychain service name is not secret. Its password is a secret:
+the MCP reads it only into its child process memory at startup and must not
+return it in a tool result.
+
 ## Boundaries
 
 - Do not substitute web search, prior conversation data, or an assumed schedule

@@ -221,7 +221,9 @@ class KaggleScraper:
                 source_pages=[SOURCE_URL],
                 warnings=[
                     "Kaggle API 자격증명이 설정되지 않았습니다. "
-                    "KAGGLE_API_TOKEN 또는 KAGGLE_USERNAME과 KAGGLE_KEY를 런타임 환경에 설정하세요."
+                    "Codex 로컬 플러그인에서는 Keychain Access에 "
+                    "aichallenge-mcp-kaggle Generic Password를 만들고, "
+                    "그 password를 KAGGLE_API_TOKEN으로 자식 프로세스 메모리에만 전달합니다."
                 ],
                 listing_failed=True,
             )
